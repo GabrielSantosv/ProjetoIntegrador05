@@ -12,24 +12,37 @@ O foco principal e comparar duas abordagens de extracao de dados em documentos P
 A organização de arquivos foi atualizada para suportar um fluxo mais claro de dados, scripts e resultados:
 
 ```
-Projeto raiz/
-Projeto raiz/
-├── 01_DATA_INPUT/            <-- Documentos aqui
-│   ├── 01_TJSP/              <-- Precatórios do TJ de São Paulo
-│   ├── 02_TRT15/             <-- Precatórios Trabalhistas
-│   ├── 03_CNDT/              <-- Certidões Negativas
-│   ├── 04_FEDERAL/           <-- TRF3 e outros Federais
-│   └── 05_DOCUMENTOS/        <-- RGs e PDFs de teste genérico
-├── 02_SCRIPTS/
-│   ├── benchmark_bibliotecas.py
-│   ├── extrator_principal.py
+📦 ProjetoIntegrador05/
+├── 📁 01_DATA_INPUT/              ← PDFs de entrada organizados por tipo
+│   ├── 01_TJSP/      (Precatórios TJ São Paulo)
+│   ├── 02_TRT15/     (Precatórios Trabalhistas)
+│   ├── 03_CNDT/      (Certidões Negativas)
+│   ├── 04_FEDERAL/   (Federais - TRF3)
+│   └── 05_DOCUMENTOS/(RGs e genéricos)
+│
+├── 📁 02_SCRIPTS/                 ← Scripts de processamento
+│   ├── extrator_principal.py      ← CLI principal
 │   ├── ia_huggingface.py
-│   └── Extracao_Atestados_Donut_OCR_Organizado_corrigido (1) (1).ipynb
-├── 03_OUTPUT/
+│   ├── benchmark_bibliotecas.py
+│   └── Jupyter Notebook (Donut tests)
+│
+├── 📁 03_OUTPUT/                  ← Resultados gerados
 │   ├── analise_consolidada.xlsx
-│   ├── relatorio_benchmark.csv
 │   └── txt_extraidos/
-└── requirements.txt
+│
+├── 📁 extracao/                   ← Pacote Python principal
+│   ├── __init__.py
+│   ├── pipeline.py         ← Orquestra todo o fluxo
+│   ├── readers.py          ← Lê PDFs (pdfplumber + PyMuPDF)
+│   ├── parser.py           ← Extrai campos com regex
+│   ├── classifier.py       ← Classifica tipo documento
+│   ├── exporter.py         ← Exporta resultado (CSV/XLSX)
+│   ├── models.py           ← Dataclasses dos dados
+│   └── profiles.py         ← Perfis document patterns
+│
+├── requirements.txt
+├── README.md
+└── .git/
 ```
 
 O novo layout separa os arquivos PDF originais, os scripts de processamento e os resultados finais.
