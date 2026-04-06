@@ -187,3 +187,15 @@ Recomenda-se incluir:
 ---
 
 Se desejar, a proxima etapa pode ser a criacao de um notebook base no Google Colab com todo o pipeline (upload, OCR, Donut, comparacao e exportacao de resultados).
+
+## CLI
+```bash
+--input              Pasta com PDFs ou arquivo individual (padrão: 01_DATA_INPUT/)
+--output             Caminho de saída .csv ou .xlsx (padrão: 03_OUTPUT/analise_consolidada.xlsx)
+--profile            Tipo de documento: generic, tj, trt, alvara (padrão: generic)
+--reader             Leitor: plumber ou fitz (padrão: plumber)
+--ocr                Ativa OCR para PDFs escaneados
+--no-tables          Desativa extração de tabelas
+--model              Caminho para modelo sklearn (classificador customizado)
+--tesseract-cmd      Caminho Tesseract no Windows
+```
