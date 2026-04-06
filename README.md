@@ -13,12 +13,13 @@ A organização de arquivos foi atualizada para suportar um fluxo mais claro de 
 
 ```
 Projeto raiz/
-├── 01_DATA_INPUT/
-│   ├── 01_TJSP/
-│   ├── 02_TRT15/
-│   ├── 03_CNDT/
-│   ├── 04_FEDERAL/
-│   └── 05_DOCUMENTOS/
+Projeto raiz/
+├── 01_DATA_INPUT/            <-- Documentos aqui
+│   ├── 01_TJSP/              <-- Precatórios do TJ de São Paulo
+│   ├── 02_TRT15/             <-- Precatórios Trabalhistas
+│   ├── 03_CNDT/              <-- Certidões Negativas
+│   ├── 04_FEDERAL/           <-- TRF3 e outros Federais
+│   └── 05_DOCUMENTOS/        <-- RGs e PDFs de teste genérico
 ├── 02_SCRIPTS/
 │   ├── benchmark_bibliotecas.py
 │   ├── extrator_principal.py
