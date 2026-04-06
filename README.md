@@ -187,3 +187,170 @@ Recomenda-se incluir:
 ---
 
 Se desejar, a proxima etapa pode ser a criacao de um notebook base no Google Colab com todo o pipeline (upload, OCR, Donut, comparacao e exportacao de resultados).
+
+---
+
+## 13. Como Funciona a Extracao de Texto dos PDFs
+
+Esta secao descreve o processo real de extracao implementado no modulo `extracao/readers.py`.
+
+### 13.1 Visao Geral das Tres Abordagens
+
+| # | Abordagem | Converte para imagem? | Biblioteca principal | Quando usar |
+|---|-----------|----------------------|----------------------|-------------|
+| 1 | Extracao direta (pdfplumber) | **Nao** | `pdfplumber` | PDFs digitais com texto embutido |
+| 2 | Extracao direta (PyMuPDF) | **Nao** | `PyMuPDF (fitz)` | Fallback rapido quando pdfplumber falha |
+| 3 | OCR sobre imagem | **Sim** | `PyMuPDF + pytesseract` | PDFs escaneados ou com texto como imagem |
+| 4 | Donut (IA) | **Sim** | `pdf2image + transformers` | Extracao orientada por IA (script separado) |
+
+---
+
+### 13.2 Abordagem 1 e 2: Extracao Direta de Texto (sem imagem)
+
+**O arquivo PDF NAO e convertido em imagem.** O texto e lido diretamente da estrutura interna do PDF.
+
+#### Como funciona (pdfplumber):
+```
+Arquivo PDF
+  └─► pdfplumber.open()
+        └─► page.extract_text()   ← interpreta operadores graficos do PDF
+              └─► texto posicionado por coordenadas de cada caractere
+        └─► page.extract_tables() ← detecta bordas e agrupa celulas
+```
+- Classe: `PdfPlumberReader`
+- Resultado: texto corrido + tabelas estruturadas
+
+#### Como funciona (PyMuPDF / fitz):
+```
+Arquivo PDF
+  └─► fitz.open()
+        └─► page.get_text("text") ← le o stream /Contents do PDF
+              └─► texto extraido da estrutura interna
+```
+- Classe: `PyMuPDFReader`
+- Resultado: texto corrido (sem tabelas)
+
+**Resumo:** Nenhuma imagem e criada. O texto ja existe no arquivo PDF e e extraido diretamente.
+
+---
+
+### 13.3 Abordagem 3: OCR com Conversao para Imagem
+
+Ativada automaticamente quando `enable_ocr=True` e uma pagina retorna **menos de 25 caracteres** de texto (pagina escaneada ou com texto armazenado como imagem).
+
+**Fluxo completo:**
+```
+Arquivo PDF
+  └─► PyMuPDF (fitz.open)
+        └─► page.get_pixmap(matrix=fitz.Matrix(2, 2))
+              ↓
+              Imagem em escala 2x (~144 DPI) — formato Pixmap
+              ↓
+        └─► PIL Image.frombytes("RGB", ...)
+              ↓
+              Imagem RGB na memoria
+              ↓
+        └─► pytesseract.image_to_string(image, lang="por+eng")
+              ↓
+              Texto reconhecido pelo OCR (Tesseract)
+```
+- Classe: `HybridReader._ocr_page()`
+- Escala: 2x (largura e altura dobradas) para melhorar qualidade do OCR
+- Idioma: portugues + ingles por padrao (`"por+eng"`)
+- Resultado: texto via reconhecimento optico de caracteres
+
+---
+
+### 13.4 Abordagem 4: Modelo de IA Donut (script separado)
+
+Implementada em `02_SCRIPTS/ia_huggingface.py`. Diferente das abordagens anteriores, usa um modelo de visao computacional (Vision Encoder-Decoder) que **sempre converte o PDF em imagem** antes de processar.
+
+**Fluxo:**
+```
+Arquivo PDF
+  └─► pdf2image.convert_from_path(dpi=300)
+        ↓
+        Imagem PNG em alta resolucao (300 DPI)
+        ↓
+  └─► PIL Image.open() → .convert("RGB")
+        ↓
+  └─► DonutProcessor (tokenizer + feature extractor)
+        ↓
+        pixel_values (tensor para o modelo)
+        ↓
+  └─► VisionEncoderDecoderModel.generate()
+        ↓
+        Texto gerado pela IA (resposta a uma pergunta sobre o documento)
+```
+- Modelo: `naver-clova-ix/donut-base-finetuned-docvqa`
+- Resolucao: 300 DPI para maxima qualidade
+- Resultado: resposta estruturada em linguagem natural
+
+---
+
+### 13.5 Logica do HybridReader (pipeline padrao)
+
+O `HybridReader` (usado pelo `DocumentPipeline`) combina as abordagens 1, 2 e 3 automaticamente:
+
+```
+                    HybridReader.read_pages(pdf_path)
+                              │
+                    Tenta leitor primario
+                    (padrao: pdfplumber)
+                              │
+               ┌──────────────┴──────────────┐
+           Sucesso                          Falha (excecao)
+               │                              │
+        Tem texto?                    Usa leitor secundario
+        (alguma pagina                     (PyMuPDF)
+         nao vazia)
+               │
+      ┌─────────┴─────────┐
+      Sim                 Nao
+      │                   │
+      │          Usa leitor secundario
+      │               (PyMuPDF)
+      │
+OCR habilitado? (enable_ocr=True)
+      │
+  ┌───┴───┐
+  Sim     Nao
+  │       │
+  │    Retorna paginas
+  │    com texto direto
+  │
+Para cada pagina:
+  Tem >= 25 chars?
+  ┌──────┴──────┐
+  Sim          Nao
+  │             │
+  Retorna     Converte para imagem
+  como esta   (PyMuPDF Pixmap 2x)
+                │
+              PIL Image RGB
+                │
+              Tesseract OCR
+                │
+              Mescla com texto
+              original (se houver)
+```
+
+**Campo `source` no `PageText`** indica qual metodo foi usado:
+- `"plumber"` — texto direto via pdfplumber
+- `"fitz"` — texto direto via PyMuPDF
+- `"plumber+ocr"` — pdfplumber + Tesseract OCR
+- `"fitz+ocr"` — PyMuPDF + Tesseract OCR
+
+---
+
+### 13.6 Resumo das Bibliotecas por Papel
+
+| Biblioteca | Papel no projeto | Converte para imagem? |
+|------------|-----------------|----------------------|
+| `pdfplumber` | Extrai texto e tabelas diretamente do PDF | Nao |
+| `PyMuPDF (fitz)` | Extrai texto direto; tambem renderiza paginas como imagem para OCR | Nao (texto) / Sim (OCR) |
+| `pytesseract` | Reconhece texto em imagens via Tesseract | — (recebe imagem) |
+| `Pillow (PIL)` | Converte Pixmap do PyMuPDF em imagem RGB para o Tesseract | — (manipulacao) |
+| `pdf2image` | Converte PDF em imagens PNG (usado apenas no pipeline Donut) | Sim |
+| `transformers` | Executa o modelo Donut para extracao por IA | — (recebe imagem) |
+| `pypdf` | Mescla e divide arquivos PDF (PDFToolkit) | Nao |
