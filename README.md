@@ -5,6 +5,36 @@ Este Projeto Integrador tem como objetivo demonstrar como Inteligencia Artificia
 
 O foco principal e comparar duas abordagens de extracao de dados em documentos PDF:
 
+- OCR tradicional com regras (Tesseract + Regex)
+- Modelo de IA Donut (Vision Encoder-Decoder)
+
+## Estrutura do Projeto
+A organização de arquivos foi atualizada para suportar um fluxo mais claro de dados, scripts e resultados:
+
+```
+Projeto raiz/
+├── 01_DATA_INPUT/
+│   ├── 01_TJSP/
+│   ├── 02_TRT15/
+│   ├── 03_CNDT/
+│   ├── 04_FEDERAL/
+│   └── 05_DOCUMENTOS/
+├── 02_SCRIPTS/
+│   ├── benchmark_bibliotecas.py
+│   ├── extrator_principal.py
+│   ├── ia_huggingface.py
+│   └── Extracao_Atestados_Donut_OCR_Organizado_corrigido (1) (1).ipynb
+├── 03_OUTPUT/
+│   ├── analise_consolidada.xlsx
+│   ├── relatorio_benchmark.csv
+│   └── txt_extraidos/
+└── requirements.txt
+```
+
+O novo layout separa os arquivos PDF originais, os scripts de processamento e os resultados finais.
+
+O foco principal e comparar duas abordagens de extracao de dados em documentos PDF:
+
 1. OCR tradicional com regras (Tesseract + Regex)
 2. Modelo de IA Donut (Vision Encoder-Decoder)
 
