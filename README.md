@@ -1,201 +1,160 @@
-# Projeto Integrador (PI) - Automacao da Analise de Documentos para Compra de Precatorios
+# Projeto Integrador (PI) - Automação de Análise de Documentos Jurídicos
 
-## 1. Visao Geral
-Este Projeto Integrador tem como objetivo demonstrar como Inteligencia Artificial pode automatizar parte da analise documental no processo de compra de precatorios.
+Automatiza a extração e classificação de dados em PDFs jurídicos (precatórios, certidões, CND). Extrai CPF, processo, valor, data e classifica documentos por tipo e risco.
 
-O foco principal e comparar duas abordagens de extracao de dados em documentos PDF:
+## Funcionalidades
 
-- OCR tradicional com regras (Tesseract + Regex)
-- Modelo de IA Donut (Vision Encoder-Decoder)
+✅ Leitura de PDFs com texto ou escaneados (OCR via Tesseract)  
+✅ Classificação automática (cível, criminal, trabalhista, federal, CND, etc.)  
+✅ Extração de campos: CPF, nome, processo, data, valor, tipo de ação  
+✅ Detecção de homônimos (ignora pessoas diferentes com mesmo nome)  
+✅ Extração de tabelas estruturadas  
+✅ Análise de risco por documento  
+✅ Exportação em Excel com múltiplas abas  
 
-## Estrutura do Projeto
-A organização de arquivos foi atualizada para suportar um fluxo mais claro de dados, scripts e resultados:
+## Estrutura
 
 ```
-📦 ProjetoIntegrador05/
-├── 📁 01_DATA_INPUT/              ← PDFs de entrada organizados por tipo
-│   ├── 01_TJSP/      (Precatórios TJ São Paulo)
-│   ├── 02_TRT15/     (Precatórios Trabalhistas)
-│   ├── 03_CNDT/      (Certidões Negativas)
-│   ├── 04_FEDERAL/   (Federais - TRF3)
-│   └── 05_DOCUMENTOS/(RGs e genéricos)
-│
-├── 📁 02_SCRIPTS/                 ← Scripts de processamento
-│   ├── extrator_principal.py      ← CLI principal
-│   ├── ia_huggingface.py
-│   ├── benchmark_bibliotecas.py
-│   └── Jupyter Notebook (Donut tests)
-│
-├── 📁 03_OUTPUT/                  ← Resultados gerados
-│   ├── analise_consolidada.xlsx
-│   └── txt_extraidos/
-│
-├── 📁 extracao/                   ← Pacote Python principal
-│   ├── __init__.py
-│   ├── pipeline.py         ← Orquestra todo o fluxo
-│   ├── readers.py          ← Lê PDFs (pdfplumber + PyMuPDF)
-│   ├── parser.py           ← Extrai campos com regex
-│   ├── classifier.py       ← Classifica tipo documento
-│   ├── exporter.py         ← Exporta resultado (CSV/XLSX)
-│   ├── models.py           ← Dataclasses dos dados
-│   └── profiles.py         ← Perfis document patterns
-│
-├── requirements.txt
-├── README.md
-└── .git/
+ProjetoIntegrador05/
+├── 01_DATA_INPUT/          ← PDFs de entrada (TJSP, TRT15, CNDT, Federal, etc)
+├── 02_SCRIPTS/
+│   └── extrator_principal.py    ← CLI principal
+├── 03_OUTPUT/              ← Resultados (Excel/CSV)
+└── extracao/               ← Pacote Python
+    ├── pipeline.py         ← Orquestra fluxo
+    ├── readers.py          ← Lê PDFs
+    ├── parser.py           ← Extrai campos
+    ├── classifier.py       ← Classifica tipo
+    └── exporter.py         ← Exporta resultados
 ```
 
-O novo layout separa os arquivos PDF originais, os scripts de processamento e os resultados finais.
+## Instalar
 
-O foco principal e comparar duas abordagens de extracao de dados em documentos PDF:
-
-1. OCR tradicional com regras (Tesseract + Regex)
-2. Modelo de IA Donut (Vision Encoder-Decoder)
-
-> Observacao: o arquivo/notebook de extracao com Donut foi desenvolvido como teste solicitado pelo professor dentro do contexto deste projeto.
-
-## 2. Problema Atual
-Hoje, o fluxo de trabalho e majoritariamente manual e repetitivo, com alto consumo de tempo e risco de erro humano.
-
-Fluxo atual:
-
-1. Cliente entra em contato via WhatsApp com interesse na venda/compra de precatorio.
-2. E feita analise inicial do processo judicial para validar elegibilidade.
-3. Dados do processo sao organizados em planilha e enviados para calculo financeiro.
-4. Setor comercial apresenta proposta ao cliente.
-5. Se houver aceite, o cliente envia documentos (RG, dados bancarios, comprovante de residencia, certidao de casamento, contrato com advogado etc.).
-6. Uma pessoa analisa os documentos manualmente, copia dados e preenche sites para emissao de certidoes (ESAJ, CNDT, TRF3, TRT15, certidoes estaduais/federais/municipais).
-7. Em seguida, verifica existencia de processos vinculados e analisa detalhes (situacao, valor, tipo da acao, pagamento ja realizado etc.).
-8. Com base nisso, decide-se se o precatorio pode ou nao ser comprado.
-
-## 3. Objetivo do Projeto
-Desenvolver uma prova de conceito para automacao da leitura e interpretacao de documentos com IA, produzindo evidencias tecnicas e comparativas para relatorio academico.
-
-## 4. Escopo do Sistema (MVP Academico)
-Este projeto NAO tem foco em sistema completo de producao. O foco e:
-
-1. Processar documentos PDF enviados para analise.
-2. Extrair dados relevantes automaticamente.
-3. Comparar tecnicas diferentes de extracao.
-4. Avaliar qualidade dos resultados em cenarios reais de documentos.
-
-## 5. Requisitos Principais
-
-### 5.1 Funcionais
-1. Permitir upload/leitura de documentos PDF.
-2. Converter PDF em imagem para processamento.
-3. Executar OCR com regras para extracao de entidades (nome, CPF, endereco, etc.).
-4. Executar modelo Donut para extracao orientada por IA.
-5. Gerar saida estruturada (JSON/dicionario) para ambas as abordagens.
-6. Comparar resultados lado a lado.
-7. Registrar evidencias (prints, logs, tabelas, exemplos de saida) para relatorio.
-
-### 5.2 Experimentais (prioridade alta)
-1. Demonstrar diferencas praticas entre OCR tradicional e Donut.
-2. Levantar vantagens e desvantagens de cada metodo.
-3. Medir impacto da qualidade do documento (resolucao, ruido, inclinacao, baixa nitidez, cortes).
-
-## 6. Metodologia de Comparacao
-Para cada documento testado:
-
-1. Executar pipeline OCR (pdf2image -> preprocessamento opcional -> pytesseract -> regex).
-2. Executar pipeline Donut (pdf2image -> imagem -> inferencia com transformers).
-3. Normalizar saidas para o mesmo formato.
-4. Comparar os campos extraidos.
-
-Criterios sugeridos:
-
-1. Precisao por campo (ex.: CPF correto/incorreto).
-2. Completude (quantos campos esperados foram encontrados).
-3. Tempo medio de processamento por pagina/documento.
-4. Robustez em documentos de baixa qualidade.
-5. Qualidade semantica da extracao (texto bruto vs informacao estruturada).
-
-## 7. Tecnologias Sugeridas
-1. Python
-2. Google Colab
-3. pytesseract
-4. pdf2image
-5. transformers (Donut)
-6. Pillow
-7. Regex
-
-## 8. Saidas Esperadas
-1. Texto extraido dos documentos.
-2. Dados estruturados (nome, CPF, endereco etc.).
-3. Resultado do modelo Donut.
-4. Comparativo entre OCR e Donut.
-5. Evidencias para relatorio academico.
-
-Exemplo de estrutura de saida:
-
-```json
-{
-  "documento": "exemplo.pdf",
-  "ocr": {
-    "nome": "...",
-    "cpf": "...",
-    "endereco": "..."
-  },
-  "donut": {
-    "nome": "...",
-    "cpf": "...",
-    "endereco": "..."
-  },
-  "comparacao": {
-    "cpf_igual": true,
-    "campos_preenchidos_ocr": 2,
-    "campos_preenchidos_donut": 3,
-    "observacoes": "Donut capturou mais contexto em documento com ruido."
-  }
-}
-```
-
-## 9. Estrutura Sugerida no Google Colab
-1. Setup de dependencias.
-2. Upload de PDFs.
-3. Conversao PDF -> imagem.
-4. Extracao por OCR + Regex.
-5. Extracao por Donut.
-6. Pos-processamento e normalizacao.
-7. Comparacao de resultados.
-8. Exportacao de evidencias (CSV/JSON/imagens).
-
-## 10. Evidencias para o Relatorio
-Recomenda-se incluir:
-
-1. Prints das entradas (documentos/imagens).
-2. Saida textual do OCR.
-3. Saida estruturada do Donut.
-4. Tabela comparativa por campo e por documento.
-5. Analise critica dos resultados (acertos, erros e causas provaveis).
-6. Conclusao sobre viabilidade da automacao.
-
-## 11. Limites e Riscos
-1. Documentos com baixa qualidade podem reduzir performance de ambos os metodos.
-2. Regex depende de padroes e pode falhar em formatos muito variados.
-3. Donut pode exigir ajuste de prompt/modelo conforme tipo documental.
-4. Custos computacionais e tempo de inferencia devem ser observados.
-
-## 12. Proximos Passos
-1. Consolidar conjunto de documentos de teste com diferentes niveis de qualidade.
-2. Definir gabarito (ground truth) para avaliar precisao por campo.
-3. Padronizar metricas e tabela de comparacao.
-4. Executar bateria de testes no Colab.
-5. Finalizar analise comparativa e conclusoes academicas.
-
----
-
-Se desejar, a proxima etapa pode ser a criacao de um notebook base no Google Colab com todo o pipeline (upload, OCR, Donut, comparacao e exportacao de resultados).
-
-## CLI
 ```bash
---input              Pasta com PDFs ou arquivo individual (padrão: 01_DATA_INPUT/)
---output             Caminho de saída .csv ou .xlsx (padrão: 03_OUTPUT/analise_consolidada.xlsx)
---profile            Tipo de documento: generic, tj, trt, alvara (padrão: generic)
---reader             Leitor: plumber ou fitz (padrão: plumber)
---ocr                Ativa OCR para PDFs escaneados
---no-tables          Desativa extração de tabelas
---model              Caminho para modelo sklearn (classificador customizado)
---tesseract-cmd      Caminho Tesseract no Windows
+# Clone o repositório
+cd ProjetoIntegrador05
+
+# Crie ambiente virtual
+python -m venv venv
+venv\Scripts\activate      # Windows
+source venv/bin/activate    # Linux/Mac
+
+# Instale dependências
+pip install -r requirements.txt
 ```
+
+### OCR (Opcional - Tesseract)
+
+Para processar PDFs escaneados:
+
+1. Baixe: [Tesseract-OCR Release](https://github.com/UB-Mannheim/tesseract/wiki)
+2. Instale com caminho padrão: `C:\Program Files\Tesseract-OCR`
+
+## Uso Rápido
+
+```bash
+# Processar pasta inteira (padrão: 01_DATA_INPUT/)
+python 02_SCRIPTS/extrator_principal.py
+
+# Processar com OCR
+python 02_SCRIPTS/extrator_principal.py --ocr --tesseract-cmd "C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+# Processar arquivo único
+python 02_SCRIPTS/extrator_principal.py --input "01_DATA_INPUT/exemplo.pdf"
+
+# Salvar resultado em local específico
+python 02_SCRIPTS/extrator_principal.py --output "03_OUTPUT/resultado.xlsx"
+
+# Usar perfil específico (tj, trt, alvara, generic)
+python 02_SCRIPTS/extrator_principal.py --profile tj
+
+# Desativar extração de tabelas
+python 02_SCRIPTS/extrator_principal.py --no-tables
+
+# Usar modelo sklearn customizado
+python 02_SCRIPTS/extrator_principal.py --model /caminho/modelo.pkl
+```
+
+## Opções da CLI
+
+| Opção | Padrão | Descrição |
+|-------|--------|-----------|
+| `--input` | `01_DATA_INPUT/` | Pasta ou arquivo PDF |
+| `--output` | `03_OUTPUT/analise_consolidada.xlsx` | Arquivo de saída |
+| `--profile` | `generic` | Tipo documento: generic, tj, trt, alvara |
+| `--reader` | `plumber` | Leitor: plumber ou fitz |
+| `--ocr` | Inativo | Ativa OCR para PDFs escaneados |
+| `--no-tables` | Tabelas ativas | Desativa extração de tabelas |
+| `--model` | - | Caminho modelo sklearn (.pkl) |
+| `--tesseract-cmd` | Auto-detect | Path Tesseract Windows |
+
+## Resultado
+
+**Arquivo Excel com 2 abas:**
+
+**Aba "pages"** - Uma linha por página:
+- source_file, page_number, document_type, name, cpf, process_number, date, value, status, risk_level, ...
+
+**Aba "tables"** - Tabelas estruturadas:
+- source_file, page_number, table_index, table_data
+
+## Uso em Python
+
+```python
+from pathlib import Path
+from extracao import DocumentPipeline
+
+# Criar pipeline
+pipeline = DocumentPipeline(
+    prefer_reader="plumber",
+    profile="tj",
+    enable_ocr=True,
+    extract_tables=True
+)
+
+# Processar
+result = pipeline.process_path(Path("01_DATA_INPUT"))
+
+# Exportar
+pipeline.export(result, Path("03_OUTPUT/resultado.xlsx"))
+
+# Acessar dados
+for record in result.records:
+    print(f"{record.cpf} | {record.process_number} | {record.document_type}")
+```
+
+## Tipos de Documento (Classificação Automática)
+
+| Tipo | Risco | Descrição |
+|------|-------|-----------|
+| `civel_estadual` | 🔴 Máximo | TJSP - Ação Cível |
+| `criminal_estadual` | 🟡 Médio | TJSP - Ação Criminal |
+| `cnd_federal` | 🔴 Máximo | Certidão Negativa Federal |
+| `civel_federal` | 🔴 Máximo | Federal - Cível |
+| `cndt` | 🟡 Médio | Certidão Negativa Trabalhista |
+| `trf3` | 🟢 Informativo | Tribunal Regional Federal |
+| `criminal_federal` | 🟡 Médio | Federal - Criminal |
+| `ceat` | 🟢 Informativo | Certidão Trabalhista |
+
+## Campos Extraídos
+
+- **name** - Nome da pessoa
+- **cpf** - CPF formatado (XXX.XXX.XXX-XX)
+- **process_number** - Número do processo (XXXXXXXX-DD.YYYY.D.DD.YYYY)
+- **date** - Data (DD/MM/YYYY)
+- **value** - Valor monetário (R$ X.XXX,XX)
+- **tipo_acao** - Tipo de ação judicial
+- **situacao_processual** - Situação (Julgada, Aguardando, etc)
+- **vara** - Vara judiciária
+- **foro** - Foro
+- **status** - NADA CONSTAR ou POSITIVA
+- **processes_from_geometry** - Processos por marcador visual "»"
+
+## Tecnologias
+
+- **pdfplumber, PyMuPDF** - Leitura de PDFs
+- **pytesseract** - OCR
+- **pandas, openpyxl** - Exportação Excel
+- **scikit-learn** - Classificação (opcional)
+- **transformers, torch** - Modelos IA (Donut)
+- **pillow** - Processamento de imagens
