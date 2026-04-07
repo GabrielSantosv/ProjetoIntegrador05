@@ -15,17 +15,37 @@ Automatiza a extração e classificação de dados em PDFs jurídicos (precatór
 ## Estrutura
 
 ```
-ProjetoIntegrador05/
-├── 01_DATA_INPUT/          ← PDFs de entrada (TJSP, TRT15, CNDT, Federal, etc)
-├── 02_SCRIPTS/
-│   └── extrator_principal.py    ← CLI principal
-├── 03_OUTPUT/              ← Resultados (Excel/CSV)
-└── extracao/               ← Pacote Python
-    ├── pipeline.py         ← Orquestra fluxo
-    ├── readers.py          ← Lê PDFs
-    ├── parser.py           ← Extrai campos
-    ├── classifier.py       ← Classifica tipo
-    └── exporter.py         ← Exporta resultados
+📦 ProjetoIntegrador05/
+├── 📁 01_DATA_INPUT/              ← PDFs de entrada organizados por tipo
+│   ├── 01_TJSP/      (Precatórios TJ São Paulo)
+│   ├── 02_TRT15/     (Precatórios Trabalhistas)
+│   ├── 03_CNDT/      (Certidões Negativas)
+│   ├── 04_FEDERAL/   (Federais - TRF3)
+│   └── 05_DOCUMENTOS/(RGs e genéricos)
+│
+├── 📁 02_SCRIPTS/                 ← Scripts de processamento
+│   ├── extrator_principal.py      ← CLI principal
+│   ├── ia_huggingface.py
+│   ├── benchmark_bibliotecas.py
+│   └── Jupyter Notebook (Donut tests)
+│
+├── 📁 03_OUTPUT/                  ← Resultados gerados
+│   ├── analise_consolidada.xlsx
+│   └── txt_extraidos/
+│
+├── 📁 extracao/                   ← Pacote Python principal
+│   ├── __init__.py
+│   ├── pipeline.py         ← Orquestra todo o fluxo
+│   ├── readers.py          ← Lê PDFs (pdfplumber + PyMuPDF)
+│   ├── parser.py           ← Extrai campos com regex
+│   ├── classifier.py       ← Classifica tipo documento
+│   ├── exporter.py         ← Exporta resultado (CSV/XLSX)
+│   ├── models.py           ← Dataclasses dos dados
+│   └── profiles.py         ← Perfis document patterns
+│
+├── requirements.txt
+├── README.md
+└── .git/
 ```
 
 ## Instalar
