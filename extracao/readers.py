@@ -4,10 +4,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF
+    _FITZ_AVAILABLE = True
+except ImportError:
+    fitz = None  # type: ignore[assignment]
+    _FITZ_AVAILABLE = False
+
 import pdfplumber
-import pytesseract
-from PIL import Image
+
+try:
+    import pytesseract
+    from PIL import Image
+    _OCR_AVAILABLE = True
+except ImportError:
+    pytesseract = None  # type: ignore[assignment]
+    Image = None  # type: ignore[assignment]
+    _OCR_AVAILABLE = False
+
 from pypdf import PdfReader, PdfWriter
 
 
@@ -40,6 +54,8 @@ class PdfPlumberReader:
 
 class PyMuPDFReader:
     def read_pages(self, pdf_path: Path) -> list[PageText]:
+        if not _FITZ_AVAILABLE:
+            raise ImportError("PyMuPDF (fitz) não está instalado. Use pip install pymupdf.")
         pages: list[PageText] = []
         with fitz.open(pdf_path) as doc:
             for index, page in enumerate(doc, start=1):
@@ -89,6 +105,8 @@ class HybridReader:
         return PageText(page_number=page.page_number, text=merged_text, tables=page.tables, source=f"{page.source}+ocr")
 
     def _ocr_page(self, pdf_path: Path, page_number: int) -> str:
+        if not _FITZ_AVAILABLE or not _OCR_AVAILABLE:
+            return ""
         try:
             with fitz.open(pdf_path) as doc:
                 page = doc[page_number - 1]
