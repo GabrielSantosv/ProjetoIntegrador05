@@ -50,34 +50,118 @@ Automatiza a extração e classificação de dados em PDFs jurídicos (precatór
 
 ## Instalar
 
+### Pré-requisitos
+- Python 3.10 ou superior
+- Git
+
+### Instalação Básica
+
 ```bash
-# Clone o repositório
+# 1. Clone o repositório
+git clone https://github.com/seu-usuario/ProjetoIntegrador05.git
 cd ProjetoIntegrador05
 
-# Crie ambiente virtual
+# 2. Crie ambiente virtual
 python -m venv venv
-venv\Scripts\activate      # Windows
-source venv/bin/activate    # Linux/Mac
 
-# Instale dependências
+# 3. Ative o ambiente virtual
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# 4. Instale as dependências
 pip install -r requirements.txt
+```
+
+### Instalação Manual (Alternativa)
+
+Se preferir instalar biblioteca por biblioteca:
+
+```bash
+pip install pdfplumber>=0.11.4
+pip install pymupdf>=1.24.9
+pip install pytesseract>=0.3.13
+pip install pillow>=11.0.0
+pip install pandas>=2.2.2
+pip install openpyxl>=3.1.5
+pip install scikit-learn>=1.5.1
+pip install joblib>=1.4.2
+pip install transformers>=4.40.0
+pip install torch>=2.0.0
+pip install pdf2image>=1.16.0
+pip install sentencepiece>=0.1.98
 ```
 
 ### OCR (Opcional - Tesseract)
 
 Para processar PDFs escaneados:
 
-1. Baixe: [Tesseract-OCR Release](https://github.com/UB-Mannheim/tesseract/wiki)
-2. Instale com caminho padrão: `C:\Program Files\Tesseract-OCR`
+1. **Baixe o Tesseract:**
+   - [Tesseract-OCR Release](https://github.com/UB-Mannheim/tesseract/wiki)
+   - Versão recomendada: `tesseract-ocr-w64-setup-v5.x.x.exe`
 
-## Uso Rápido
+2. **Instale** com opções padrão (caminho: `C:\Program Files\Tesseract-OCR`)
+
+3. **Teste a instalação:**
+   ```bash
+   tesseract --version
+   ```
+
+## Como Rodar
+
+### Uso Básico
 
 ```bash
+# Ative o ambiente virtual primeiro
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+
 # Processar pasta inteira (padrão: 01_DATA_INPUT/)
 python 02_SCRIPTS/extrator_principal.py
 
-# Processar com OCR
+# Resultado será salvo em: 03_OUTPUT/analise_consolidada.xlsx
+```
+
+### Exemplos de Uso
+
+```bash
+# Processar com OCR (PDFs escaneados)
 python 02_SCRIPTS/extrator_principal.py --ocr --tesseract-cmd "C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+# Processar arquivo único
+python 02_SCRIPTS/extrator_principal.py --input "01_DATA_INPUT/exemplo.pdf"
+
+# Salvar resultado em local específico
+python 02_SCRIPTS/extrator_principal.py --output "03_OUTPUT/resultado.xlsx"
+
+# Usar perfil específico (tj, trt, alvara, generic)
+python 02_SCRIPTS/extrator_principal.py --profile tj
+
+# Desativar extração de tabelas
+python 02_SCRIPTS/extrator_principal.py --no-tables
+
+# Usar modelo sklearn customizado
+python 02_SCRIPTS/extrator_principal.py --model /caminho/modelo.pkl
+
+# Combinar múltiplas opções
+python 02_SCRIPTS/extrator_principal.py \
+  --input 01_DATA_INPUT/01_TJSP \
+  --output 03_OUTPUT/tjsp.xlsx \
+  --profile tj \
+  --ocr \
+  --tesseract-cmd "C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+### Verificar Instalação
+
+```bash
+# Teste se tudo está funcionando
+python -c "import pdfplumber, pytesseract, pandas; print('✅ Todas as bibliotecas instaladas!')"
+
+# Teste o script principal
+python 02_SCRIPTS/extrator_principal.py --help
+```
 
 # Processar arquivo único
 python 02_SCRIPTS/extrator_principal.py --input "01_DATA_INPUT/exemplo.pdf"

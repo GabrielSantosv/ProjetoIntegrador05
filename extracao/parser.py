@@ -22,7 +22,7 @@ NAME_HINT_REGEX = re.compile(
 
 # Frase que indica que o CPF-alvo não tem processos (homônimos a ignorar)
 NADA_CONSTAR_REGEX = re.compile(
-    r"verificou\s+nada\s+constar|nada\s+constar|sem\s+ocorrências",
+    r"verificou\s+nada\s+constar|nada\s+constar|sem\s+ocorrências|não\s+constam|nao\s+constam",
     re.IGNORECASE,
 )
 
