@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Response
 from fastapi.responses import JSONResponse
 import os
 from pathlib import Path
@@ -153,6 +153,26 @@ async def get_document(doc_id: int):
             'created_at': doc['created_at'],
             'updated_at': doc['updated_at'],
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.delete('/{doc_id}/')
+async def delete_document(doc_id: int):
+    """Delete document record and associated file"""
+    try:
+        doc = database.get_document(doc_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail='Document not found')
+
+        ok = database.delete_document(doc_id)
+        if not ok:
+            raise HTTPException(status_code=500, detail='Failed to delete document')
+
+        return Response(status_code=204)
     except HTTPException:
         raise
     except Exception as e:

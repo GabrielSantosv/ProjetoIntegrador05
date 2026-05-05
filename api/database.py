@@ -169,3 +169,51 @@ def update_document_status(doc_id: int, status: str, **kwargs) -> bool:
             cur.execute(query, values)
             conn.commit()
             return cur.rowcount > 0
+
+
+def delete_document(doc_id: int) -> bool:
+    """Delete document row and remove file from filesystem if present"""
+    with get_connection() as conn:
+        with get_cursor(conn) as cur:
+            # fetch stored file path
+            cur.execute("SELECT file FROM documents_document WHERE id = %s", (doc_id,))
+            row = cur.fetchone()
+            if not row:
+                return False
+            file_path = row[0]
+
+            # attempt to remove file from disk — try multiple candidate paths to be robust
+            tried = []
+            try:
+                candidates = []
+                # raw value
+                candidates.append(Path(file_path))
+                # strip leading slashes
+                candidates.append(Path(file_path.lstrip('/\\')))
+                # relative to cwd
+                candidates.append(Path.cwd() / file_path)
+                # common media folders
+                candidates.append(Path.cwd() / 'media' / 'documents' / Path(file_path).name)
+                candidates.append(Path(__file__).resolve().parents[1] / 'media' / 'documents' / Path(file_path).name)
+
+                removed = False
+                for c in candidates:
+                    tried.append(str(c))
+                    try:
+                        if c.exists():
+                            c.unlink()
+                            removed = True
+                            break
+                    except Exception as e:
+                        # continue trying other candidates
+                        print(f"Warning: failed unlink candidate {c}: {e}")
+
+                if not removed:
+                    print(f"Warning: file for document {doc_id} not found among candidates: {tried}")
+            except Exception as e:
+                print(f"Warning: could not remove file {file_path}: {e}")
+
+            # delete DB row
+            cur.execute("DELETE FROM documents_document WHERE id = %s", (doc_id,))
+            conn.commit()
+            return cur.rowcount > 0

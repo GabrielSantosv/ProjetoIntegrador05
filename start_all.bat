@@ -1,32 +1,55 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-echo Iniciando backend FastAPI na porta 8000...
+echo.
+echo ===================================
+echo  Iniciando Projeto Integrador 05
+echo ===================================
+echo.
+
+REM Verificar backend na porta 8000
+echo Verificando backend (porta 8000)...
 netstat -ano | findstr ":8000" >nul
 if errorlevel 1 (
+	echo Backend nao esta rodando. Iniciando...
 	start "Backend FastAPI" cmd /k "cd /d "%~dp0" && .venv\Scripts\python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000"
 ) else (
-	echo Backend ja esta rodando na porta 8000.
+	echo [OK] Backend ja esta rodando na porta 8000.
 )
 
-echo Iniciando frontend Vite na porta 5173...
+REM Verificar frontend na porta 5173
+echo.
+echo Verificando frontend (porta 5173)...
 netstat -ano | findstr ":5173" >nul
 if errorlevel 1 (
-	start "Frontend Vite" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+	echo Frontend nao esta rodando. Iniciando...
+	REM Instalar dependencias se necessario
+	if not exist "%~dp0frontend\node_modules" (
+		echo Instalando dependencias do frontend (npm install)...
+		start "Frontend Setup" cmd /k "cd /d "%~dp0frontend" && npm install && npm run dev"
+	) else (
+		echo Iniciando servidor de desenvolvimento...
+		start "Frontend Vite" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+	)
 ) else (
-	echo Frontend ja esta rodando na porta 5173.
+	echo [OK] Frontend ja esta rodando na porta 5173.
 )
 
-timeout /t 3 /nobreak >nul
+timeout /t 4 /nobreak >nul
+echo.
+echo ===================================
+echo  Abrindo interface...
+echo ===================================
 start http://localhost:5173
 
 echo.
-echo Servicos iniciados.
+echo [OK] Servicos iniciados!
+echo.
 echo Backend:  http://localhost:8000
 echo Frontend: http://localhost:5173
 echo.
-echo Se o banco PostgreSQL nao estiver rodando, inicie-o antes de usar o sistema.
-echo Pressione qualquer tecla para fechar esta janela.
+echo Nota: PostgreSQL deve estar rodando antes de usar o sistema.
+echo Pressione ENTER para fechar esta janela.
 pause >nul
