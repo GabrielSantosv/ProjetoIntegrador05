@@ -29,3 +29,70 @@ class Document(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class DocumentText(models.Model):
+    document = models.OneToOneField(Document, on_delete=models.CASCADE, related_name="text")
+    raw_text = models.TextField(blank=True)
+    raw_ocr_text = models.TextField(blank=True)
+    pages = models.JSONField(default=list, blank=True)
+    extraction_method = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Text for {self.document_id}"
+
+
+class DocumentEntity(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="document_entities")
+    entity_type = models.CharField(max_length=120)
+    value = models.TextField()
+    start_char = models.IntegerField(null=True, blank=True)
+    end_char = models.IntegerField(null=True, blank=True)
+    page = models.IntegerField(null=True, blank=True)
+    confidence = models.FloatField(null=True, blank=True)
+    meta = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["document", "entity_type"])]
+
+    def __str__(self) -> str:
+        return f"{self.entity_type}: {self.value}"
+
+
+class ParsedField(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="parsed_fields")
+    field_name = models.CharField(max_length=200)
+    field_value = models.JSONField(default=dict, blank=True)
+    page = models.IntegerField(null=True, blank=True)
+    confidence = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.field_name} ({self.document_id})"
+
+
+class ProcessingLog(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="processing_logs")
+    status = models.CharField(max_length=20)
+    message = models.TextField(blank=True)
+    worker = models.CharField(max_length=200, blank=True)
+    attempt = models.IntegerField(default=0)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Log {self.status} for {self.document_id}"
+
+
+class Export(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="exports")
+    export_type = models.CharField(max_length=20)
+    file = models.FileField(upload_to="exports/%Y/%m/", blank=True, null=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.export_type} for {self.document_id}"
