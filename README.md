@@ -1,117 +1,51 @@
-# MVP - Processamento de Documentos Juridicos
+# ProjetoIntegrador05
 
-Sistema full stack para upload de PDFs juridicos, extracao de dados, classificacao, parecer via HuggingFace e exportacao para Excel/Word.
+Sistema para upload de PDFs juridicos, extracao de texto, classificacao, analise simples e visualizacao no dashboard.
 
-## Stack
+## Stack atual
 
-- Frontend: React 18, TypeScript 5, Vite 5, Tailwind, shadcn/ui base, Lucide, Zustand, TanStack Query, Axios, React Hook Form, Zod, React Router e Recharts.
-- Backend: Django 5, DRF, Simple JWT, CORS, Celery, Redis, PostgreSQL, pdfplumber, PyMuPDF, Tesseract OCR, openpyxl e python-docx.
-- IA/NLP: HuggingFace Inference API para Mistral, BERTimbau e LenerBR. Sem token, o MVP usa fallbacks deterministicos para continuar funcionando.
+- Frontend: React 18, TypeScript 5, Vite 5, Tailwind e Zustand.
+- Backend: FastAPI, Uvicorn, PostgreSQL via `psycopg`, leitura de `.env` e extração com `pdfplumber`, `PyMuPDF` e OCR opcional.
+- Banco: PostgreSQL `Projeto_integrador`.
 
 ## Como rodar
 
-1. Crie os arquivos de ambiente:
+1. Garanta que o arquivo `backend/.env` exista com as credenciais do PostgreSQL.
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
+2. Instale as dependências do backend:
+
+```powershell
+.\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-2. Se você tiver Postgres e Redis, suba-os com:
+3. Inicie o backend:
 
-```bash
-docker compose up -d postgres redis
+```powershell
+.\.venv\Scripts\python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Se você ainda não tem Postgres, pode deixar `backend/.env` com `DATABASE_URL=` e o backend será executado com SQLite local.
+4. Inicie o frontend:
 
-Tambem e possivel subir todos os servicos com Docker:
-
-```bash
-docker compose up --build
-```
-
-3. Backend:
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
-
-4. Worker Celery, em outro terminal:
-
-```bash
-cd backend
-.venv\Scripts\activate
-celery -A legal_docs worker -l info
-```
-
-5. Frontend:
-
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173` e entre com o superusuario criado no Django.
+Ou use o arquivo [start_all.bat](start_all.bat) na raiz do projeto.
 
 ## Endpoints principais
 
-- `POST /api/auth/token/`: obtem JWT.
-- `GET /api/documents/`: lista documentos do usuario autenticado.
+- `GET /health`: verifica se a API está no ar.
+- `GET /api/documents/`: lista documentos.
 - `POST /api/documents/`: envia PDF em multipart form.
-- `GET /api/documents/{id}/`: consulta resultado.
-- `GET /api/documents/{id}/export_excel/`: exporta XLSX.
-- `GET /api/documents/{id}/export_word/`: exporta DOCX.
-- `GET /api/documents/summary/`: metricas para dashboard.
-- `GET /api/docs/`: Swagger/OpenAPI.
+- `GET /api/documents/{id}`: consulta os detalhes de um documento.
 
-## Observacoes de OCR e IA
-
-- O OCR depende de `tesseract-ocr`, idioma `por` e `poppler-utils`. O Dockerfile do backend ja instala esses pacotes.
-- `pdfplumber` extrai texto e coordenadas. Se o texto for insuficiente, o pipeline tenta `PyMuPDF`; se ainda falhar, tenta OCR com Tesseract.
-- Configure `HUGGINGFACE_API_TOKEN` em `backend/.env` para habilitar Mistral, BERTimbau e NER via HTTP.
-
-## Qualidade
-
-Frontend:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-Backend:
-
-```bash
-cd backend
-python manage.py check
-python manage.py test
-```
-
-## Estrutura
+## Estrutura atual
 
 ```text
-backend/
-  documents/
-    services/
-      pdf.py          # extracao pdfplumber, PyMuPDF e OCR
-      parser.py       # campos juridicos e risco
-      classifier.py   # tipo de certidao
-      ner.py          # PESSOA, LOCAL, TEMPO
-      ai.py           # parecer via Mistral
-      exporters.py    # Excel e Word
-frontend/
-  src/
-    components/
-    pages/
-    lib/api.ts
-    store/auth.ts
+api/        # FastAPI em uso
+frontend/   # React/Vite
+backend/    # apenas configuração de ambiente (.env)
+media/      # uploads salvos
 ```
