@@ -57,53 +57,70 @@ export function UploadDocumentForm({ onUpload }: Props) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Novo processamento</CardTitle>
+      <Card className="border-2 border-primary/20 hover:border-primary/40 hover:shadow-lg transition-all">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent">
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-primary" />
+            Novo Processamento
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form className="grid gap-4 md:grid-cols-[1fr_1fr_auto]" onSubmit={form.handleSubmit(onSubmit)}>
             <div className="space-y-2">
-              <Label htmlFor="title">Titulo</Label>
-              <Input id="title" placeholder="Certidao do processo..." {...form.register("title")} />
-              {form.formState.errors.title && <p className="text-sm text-destructive">{form.formState.errors.title.message}</p>}
+              <Label htmlFor="title" className="font-semibold text-foreground">Título do Documento</Label>
+              <Input 
+                id="title" 
+                placeholder="Ex: Certidão do processo 001/2024" 
+                {...form.register("title")}
+                className="focus:ring-2 focus:ring-primary/30"
+              />
+              {form.formState.errors.title && <p className="text-sm text-destructive font-medium">⚠️ {form.formState.errors.title.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="file">PDF</Label>
-              <Input id="file" type="file" accept="application/pdf" {...form.register("file")} />
-              {form.formState.errors.file && <p className="text-sm text-destructive">{form.formState.errors.file.message}</p>}
+              <Label htmlFor="file" className="font-semibold text-foreground">Selecionar PDF</Label>
+              <Input 
+                id="file" 
+                type="file" 
+                accept="application/pdf" 
+                {...form.register("file")}
+                className="file:cursor-pointer file:font-semibold file:text-primary hover:file:text-primary/80"
+              />
+              {form.formState.errors.file && <p className="text-sm text-destructive font-medium">⚠️ {form.formState.errors.file.message}</p>}
             </div>
-            <Button className="self-end" disabled={form.formState.isSubmitting}>
+            <Button 
+              className="self-end bg-primary hover:bg-primary/80 text-white font-semibold shadow-md hover:shadow-lg" 
+              disabled={form.formState.isSubmitting}
+            >
               <Upload className="h-4 w-4" />
-              Enviar
+              {form.formState.isSubmitting ? "Enviando..." : "Enviar"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       {showPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[90%] max-w-4xl bg-white rounded shadow-lg overflow-hidden">
-            <div className="p-4 flex items-center justify-between border-b">
-              <h3 className="text-lg font-medium">Pré-visualizar PDF</h3>
-              <div className="space-x-2">
-                <Button variant="secondary" onClick={cancelPreview} type="button">
-                  Cancelar
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-[90%] max-w-4xl bg-white rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-4 flex items-center justify-between border-b bg-gradient-to-r from-primary/5 to-transparent">
+              <h3 className="text-lg font-bold text-foreground">📄 Pré-visualizar PDF</h3>
+              <div className="space-x-2 flex">
+                <Button variant="secondary" onClick={cancelPreview} type="button" className="hover:bg-red-100">
+                  ✕ Cancelar
                 </Button>
-                <Button onClick={confirmUpload} type="button">
-                  Confirmar e Enviar
+                <Button onClick={confirmUpload} type="button" className="bg-green-600 hover:bg-green-700 text-white">
+                  ✓ Confirmar e Enviar
                 </Button>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-4 bg-gray-50">
               {previewUrl ? (
-                <object data={previewUrl} type="application/pdf" width="100%" height={600}>
-                  <p>
-                    Não foi possível visualizar o PDF. <a href={previewUrl} target="_blank" rel="noreferrer">Abrir em nova aba</a>
+                <object data={previewUrl} type="application/pdf" width="100%" height={600} className="border border-gray-300 rounded">
+                  <p className="text-center text-muted-foreground">
+                    Não foi possível visualizar o PDF. <a href={previewUrl} target="_blank" rel="noreferrer" className="text-primary font-semibold hover:underline">Abrir em nova aba →</a>
                   </p>
                 </object>
               ) : (
-                <p>Sem arquivo para pré-visualização</p>
+                <p className="text-center text-muted-foreground py-8">Sem arquivo para pré-visualização</p>
               )}
             </div>
           </div>

@@ -39,29 +39,46 @@ export function DocumentTable({ documents, onDeleted }: { documents: LegalDocume
             </thead>
             <tbody>
               {documents.map((doc) => (
-                <tr key={doc.id} className="border-b last:border-0">
+                <tr key={doc.id} className="border-b last:border-0 hover:bg-primary/5 transition-colors duration-100">
                   <td className="py-3">
-                    <div className="flex items-center gap-2 font-medium">
+                    <div className="flex items-center gap-2 font-medium text-foreground">
                       <FileText className="h-4 w-4 text-primary" />
-                      {doc.title}
+                      <span className="font-semibold">{doc.title}</span>
                     </div>
                   </td>
-                  <td className="py-3">{doc.document_type || "-"}</td>
-                  <td className="py-3">{statusLabels[doc.status]}</td>
-                  <td className="py-3">{doc.risk_score}/100</td>
+                  <td className="py-3 text-muted-foreground">{doc.document_type || "-"}</td>
+                  <td className="py-3">
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                      doc.status === 'done' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                      doc.status === 'failed' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {statusLabels[doc.status]}
+                    </span>
+                  </td>
+                  <td className="py-3">
+                    <span className={`font-semibold ${
+                      doc.risk_score > 70 ? 'text-red-600' :
+                      doc.risk_score > 40 ? 'text-orange-600' :
+                      'text-green-600'
+                    }`}>
+                      {doc.risk_score}/100
+                    </span>
+                  </td>
                   <td className="py-3">
                     <div className="flex justify-end gap-2">
-                      <Button asChild variant="outline" size="icon" title="Ver detalhes">
+                      <Button asChild variant="outline" size="icon" title="Ver detalhes do documento">
                         <Link to={`/documents/${doc.id}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
                       {doc.status === "done" && (
-                        <Button variant="ghost" size="icon" title="Exportar Excel" onClick={() => downloadExport(doc.id, "excel")}>
+                        <Button variant="ghost" size="icon" title="Exportar em Excel" onClick={() => downloadExport(doc.id, "excel")}>
                           <Download className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="destructive" size="icon" title="Excluir documento" onClick={() => handleDelete(doc)}>
+                      <Button variant="destructive" size="icon" title="Excluir documento (sem volta)" onClick={() => handleDelete(doc)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

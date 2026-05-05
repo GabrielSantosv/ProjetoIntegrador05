@@ -49,7 +49,7 @@ export async function fetchDocuments() {
 }
 
 export async function fetchDocument(id: string) {
-  const { data } = await api.get<LegalDocument>(`/documents/${id}/`);
+  const { data } = await api.get<LegalDocument>(`/documents/${id}`);
   return data;
 }
 
@@ -69,13 +69,13 @@ export async function uploadDocument(payload: { title: string; file: File }) {
 }
 
 export async function deleteDocument(id: number) {
-  await api.delete(`/documents/${id}/`);
+  await api.delete(`/documents/${id}`);
 }
 
 export async function downloadExport(id: number, format: "excel" | "word") {
   const endpoint = format === "excel" ? "export_excel" : "export_word";
   const extension = format === "excel" ? "xlsx" : "docx";
-  const { data } = await api.get(`/documents/${id}/${endpoint}/`, { responseType: "blob" });
+  const { data } = await api.get(`/documents/${id}/${endpoint}`, { responseType: "blob" });
   const url = URL.createObjectURL(data);
   const link = document.createElement("a");
   link.href = url;

@@ -25,3 +25,8 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Style specific file input color only */
+#file {
+  /* keep existing utility classes on the element; ensure file button text color */
+}
