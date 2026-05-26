@@ -1,0 +1,83 @@
+%% ERD - ProjetoIntegrador05
+%% Mermaid ER diagram for the current database schema
+
+erDiagram
+    AUTH_USER {
+        integer id PK
+        varchar username
+        varchar email
+    }
+
+    DOCUMENT {
+        bigint id PK
+        integer owner_id FK
+        varchar title
+        varchar file
+        varchar status
+        varchar document_type
+        text extracted_text
+        json extracted_data
+        json entities
+        text legal_opinion
+        smallint risk_score
+        text error_message
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DOCUMENTTEXT {
+        bigint id PK
+        bigint document_id FK
+        text raw_text
+        text raw_ocr_text
+        json pages
+        varchar extraction_method
+        timestamp created_at
+    }
+
+    DOCUMENTENTITY {
+        bigint id PK
+        bigint document_id FK
+        varchar entity_type
+        text value
+        integer start_char
+        integer end_char
+        integer page
+        float confidence
+        json meta
+        timestamp created_at
+    }
+
+    PARSEDFIELD {
+        bigint id PK
+        bigint document_id FK
+        varchar field_name
+        json field_value
+        integer page
+        float confidence
+        timestamp created_at
+    }
+
+    PROCESSINGLOG {
+        bigint id PK
+        bigint document_id FK
+        varchar status
+        text message
+        varchar worker
+        timestamp created_at
+    }
+
+    EXPORT {
+        bigint id PK
+        bigint document_id FK
+        varchar export_type
+        varchar file_path
+        timestamp created_at
+    }
+
+    AUTH_USER ||--o{ DOCUMENT : owns
+    DOCUMENT ||--o{ DOCUMENTENTITY : has
+    DOCUMENT ||--o{ PARSEDFIELD : has
+    DOCUMENT ||--o{ PROCESSINGLOG : has
+    DOCUMENT ||--o{ EXPORT : has
+    DOCUMENT ||--|| DOCUMENTTEXT : has_one
