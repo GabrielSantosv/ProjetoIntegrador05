@@ -1,30 +1,42 @@
 # ProjetoIntegrador05
 
-Sistema para upload de PDFs juridicos, extracao de texto, classificacao, analise simples e visualizacao no dashboard.
+Sistema para upload de PDFs jurídicos, extração de texto, classificação, análise de risco e visualização em dashboard.
 
-## Stack atual
+## Stack
 
-- Frontend: React 18, TypeScript 5, Vite 5, Tailwind e Zustand.
-- Backend: FastAPI, Uvicorn, PostgreSQL via `psycopg`, leitura de `.env` e extração com `pdfplumber`, `PyMuPDF` e OCR opcional.
-- Banco: PostgreSQL `Projeto_integrador`.
+- **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS e Zustand.
+- **Backend:** FastAPI, Uvicorn, Python 3.11+, extração com `pdfplumber`, `PyMuPDF` e OCR opcional (Tesseract).
+- **Banco:** SQLite por padrão (`data/app.db`). Suporte a PostgreSQL via `DB_BACKEND=postgresql` em `backend/.env`.
 
 ## Como rodar
 
-1. Garanta que o arquivo `backend/.env` exista com as credenciais do PostgreSQL.
+A forma mais simples é usar o script na raiz:
 
-2. Instale as dependências do backend:
+```powershell
+.\start_all.bat
+```
+
+O script verifica dependências, instala o que falta e abre o projeto em `http://localhost:5173`.
+
+### Inicialização manual
+
+1. Configure `backend/.env` (copie de `backend/.env.example`):
+
+```env
+DB_BACKEND=sqlite
+SQLITE_PATH=./data/app.db
+MEDIA_ROOT=./media
+OCR_LANGUAGE=por+eng
+```
+
+2. Instale as dependências Python e inicie o backend:
 
 ```powershell
 .\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-3. Inicie o backend:
-
-```powershell
-.\.venv\Scripts\python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-4. Inicie o frontend:
+3. Instale as dependências do frontend e inicie:
 
 ```powershell
 cd frontend
@@ -32,20 +44,36 @@ npm install
 npm run dev
 ```
 
-Ou use o arquivo [start_all.bat](start_all.bat) na raiz do projeto.
+## OCR para PDFs escaneados
+
+PDFs com texto selecionável são processados automaticamente com `pdfplumber`/`PyMuPDF`.
+PDFs escaneados (apenas imagem) precisam do Tesseract OCR instalado no Windows.
+Após instalar, configure em `backend/.env`:
+
+```env
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+OCR_LANGUAGE=por+eng
+```
+
+Sem Tesseract, o sistema salva o PDF e usa classificação por nome, mas extração completa de texto,
+entidades e análise jurídica ficam limitados.
 
 ## Endpoints principais
 
-- `GET /health`: verifica se a API está no ar.
-- `GET /api/documents/`: lista documentos.
-- `POST /api/documents/`: envia PDF em multipart form.
-- `GET /api/documents/{id}`: consulta os detalhes de um documento.
+- `GET /health` — verifica se a API está no ar.
+- `GET /api/documents/` — lista documentos.
+- `POST /api/documents/` — envia PDF em multipart form.
+- `GET /api/documents/{id}` — consulta detalhes de um documento.
 
-## Estrutura atual
+## Estrutura
 
 ```text
-api/        # FastAPI em uso
-frontend/   # React/Vite
-backend/    # apenas configuração de ambiente (.env)
-media/      # uploads salvos
+backend/        # FastAPI (main.py, services.py, database.py, routers/)
+frontend/       # React/Vite (src/, index.html, vite.config.mjs)
+data/           # banco SQLite (app.db)
+media/          # uploads salvos (documents/, rg/, processes/)
+docs/           # diagramas e documentação
+tests/          # testes automatizados
+01_DATA_INPUT/  # PDFs de exemplo para testes manuais
+scripts/        # scripts de desenvolvimento (start-dev.ps1, stop-dev.ps1)
 ```

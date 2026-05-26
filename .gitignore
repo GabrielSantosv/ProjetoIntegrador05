@@ -1,11 +1,16 @@
 .env
 *.pyc
 __pycache__/
+*.log
 db.sqlite3
 media/
+data/
 .venv/
 node_modules/
 dist/
 .DS_Store
 .idea/
 .vscode/
+.run/
+.tools/
+.pytest_cache/

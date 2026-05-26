@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import time
 from fastapi.responses import FileResponse
-from api.routers import documents, auth
+from backend.routers import documents, auth, rg, folders, processes
 
 # Create FastAPI app
 app = FastAPI(
@@ -12,18 +13,38 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware BEFORE other middlewares
+# CORS configuration - specifically list origins to allow credentials/headers correctly
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=origins + ["*"] if os.getenv("DEBUG") else origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    print(f"[API] {request.method} {request.url.path} - {response.status_code} ({process_time:.2f}ms)")
+    return response
+
+# Include routers - ensure all are under /api for consistency with frontend
 app.include_router(documents.router)
-app.include_router(auth.router)
+app.include_router(rg.router)
+app.include_router(folders.router)
+app.include_router(processes.router)
+app.include_router(auth.router, prefix="/api")
 
 # Mount media files so frontend can preview uploaded PDFs
 # MEDIA_ROOT can be set in environment; default to ./media

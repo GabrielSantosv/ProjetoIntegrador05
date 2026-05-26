@@ -1,4 +1,4 @@
-import { FileText, LogOut, Scale } from "lucide-react";
+import { FolderOpen, LogOut, Scale } from "lucide-react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ export function AppLayout() {
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link to="/">
-                <FileText className="h-4 w-4" />
-                Documentos
+                <FolderOpen className="h-4 w-4" />
+                Pastas
               </Link>
             </Button>
             <Button
