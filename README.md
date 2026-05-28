@@ -1,44 +1,68 @@
-# ProjetoIntegrador05
+# Projeto Integrador 05
 
-Sistema para upload de PDFs jurídicos, extração de texto, classificação, análise de risco e visualização em dashboard.
+Sistema web feito para organizar e analisar documentos juridicos em PDF.
 
-## Stack
+A ideia do projeto e ajudar no envio dos arquivos, extracao das informacoes principais e visualizacao dos dados em uma tela simples, com filtros, detalhes dos documentos e acompanhamento por dashboard.
 
-- **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS e Zustand.
-- **Backend:** FastAPI, Uvicorn, Python 3.11+, extração com `pdfplumber`, `PyMuPDF` e OCR opcional (Tesseract).
-- **Banco:** PostgreSQL por padrão, usando o banco `Projeto oficial`.
+## O que o sistema faz
 
-## Como rodar
+- Cadastro e login de usuarios.
+- Upload de documentos em PDF.
+- Organizacao dos arquivos por pastas.
+- Extracao de texto e dados dos documentos.
+- Consulta de RGs e processos.
+- Visualizacao dos documentos enviados.
+- Dashboard com informacoes resumidas.
 
-A forma mais simples é usar o script na raiz:
+## Tecnologias usadas
+
+**Backend**
+
+- Python
+- FastAPI
+- Uvicorn
+- PostgreSQL
+- Bibliotecas para leitura de PDF e OCR
+
+**Frontend**
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+
+## Como rodar o projeto
+
+Na raiz do projeto, execute:
 
 ```powershell
-.\start_all.bat
+.\scripts\start-dev.ps1
 ```
 
-O script verifica dependências, instala o que falta e abre o projeto em `http://localhost:5173`.
+Esse script inicia o backend e o frontend. Depois disso, acesse:
 
-### Inicialização manual
-
-1. Configure `backend/.env` (copie de `backend/.env.example`):
-
-```env
-DB_BACKEND=postgresql
-DB_NAME="Projeto oficial"
-DB_USER=postgres
-DB_PASSWORD=postgres
-MEDIA_ROOT=./media
-OCR_LANGUAGE=por+eng
+```text
+http://127.0.0.1:5173
 ```
 
-2. Instale as dependências Python e inicie o backend:
+A API fica disponivel em:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Rodando manualmente
+
+Caso prefira iniciar separado:
+
+### Backend
 
 ```powershell
 .\.venv\Scripts\python -m pip install -r requirements.txt
 .\.venv\Scripts\python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-3. Instale as dependências do frontend e inicie:
+### Frontend
 
 ```powershell
 cd frontend
@@ -46,36 +70,27 @@ npm install
 npm run dev
 ```
 
-## OCR para PDFs escaneados
+## Configuracao
 
-PDFs com texto selecionável são processados automaticamente com `pdfplumber`/`PyMuPDF`.
-PDFs escaneados (apenas imagem) precisam do Tesseract OCR instalado no Windows.
-Após instalar, configure em `backend/.env`:
-
-```env
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-OCR_LANGUAGE=por+eng
-```
-
-Sem Tesseract, o sistema salva o PDF e usa classificação por nome, mas extração completa de texto,
-entidades e análise jurídica ficam limitados.
-
-## Endpoints principais
-
-- `GET /health` — verifica se a API está no ar.
-- `GET /api/documents/` — lista documentos.
-- `POST /api/documents/` — envia PDF em multipart form.
-- `GET /api/documents/{id}` — consulta detalhes de um documento.
-
-## Estrutura
+O backend usa variaveis de ambiente. Existe um exemplo em:
 
 ```text
-backend/        # FastAPI (main.py, services.py, database.py, routers/)
-frontend/       # React/Vite (src/, index.html, vite.config.mjs)
-data/           # arquivos locais temporários e banco SQLite legado, se usado
-media/          # uploads salvos (documents/, rg/, processes/)
-docs/           # diagramas e documentação
-tests/          # testes automatizados
-01_DATA_INPUT/  # PDFs de exemplo para testes manuais
-scripts/        # scripts de desenvolvimento (start-dev.ps1, stop-dev.ps1)
+backend/.env.example
 ```
+
+Crie um arquivo `.env` dentro da pasta `backend` seguindo esse modelo e ajuste os dados do banco conforme o seu ambiente.
+
+## Estrutura do projeto
+
+```text
+backend/    API, rotas, banco de dados e regras do sistema
+frontend/   telas da aplicacao
+media/      arquivos enviados pelos usuarios
+docs/       diagramas e documentacao
+scripts/    scripts para iniciar e parar o projeto
+tests/      testes automatizados
+```
+
+## Observacao
+
+Para PDFs escaneados, a extracao completa depende de OCR. No Windows, o projeto pode usar Tesseract ou o OCR nativo quando estiver disponivel.
