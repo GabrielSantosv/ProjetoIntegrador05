@@ -1,25 +1,10 @@
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr
-from datetime import datetime, timedelta
-import os
-import jwt
+from fastapi import APIRouter, HTTPException, status, Depends
+from pydantic import BaseModel
 
 from backend.auth_db import ensure_users_table, create_user, get_user_by_email, verify_password, email_exists
+from backend.auth_security import create_access_token, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-please")
-ALGORITHM  = "HS256"
-TOKEN_TTL_DAYS = 7
-
-
-def _make_token(user_id: int, email: str) -> str:
-    payload = {
-        "sub": str(user_id),
-        "email": email,
-        "exp": datetime.utcnow() + timedelta(days=TOKEN_TTL_DAYS),
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 class LoginRequest(BaseModel):
@@ -53,7 +38,7 @@ async def register(body: RegisterRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro ao criar usuário: {exc}")
 
-    access = _make_token(user["id"], user["email"])
+    access = create_access_token(user["id"], user["email"])
     return {"access": access, "refresh": "", "email": user["email"]}
 
 
@@ -75,5 +60,10 @@ async def login(body: LoginRequest):
             detail="E-mail ou senha incorretos.",
         )
 
-    access = _make_token(user["id"], user["email"])
+    access = create_access_token(user["id"], user["email"])
     return {"access": access, "refresh": "", "email": user["email"]}
+
+
+@router.get("/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    return current_user

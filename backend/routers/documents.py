@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query
+﻿from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Depends
 from fastapi.responses import JSONResponse
 import os
 from pathlib import Path
@@ -22,10 +22,11 @@ from backend.services import (
     generate_legal_opinion,
 )
 from backend.document_profiles import DOCUMENT_TYPE_LABELS
+from backend.auth_security import get_current_user
 from fastapi.responses import FileResponse
 import unicodedata
 
-router = APIRouter(prefix='/api/documents', tags=['documents'])
+router = APIRouter(prefix='/api/documents', tags=['documents'], dependencies=[Depends(get_current_user)])
 
 MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', './media'))
 UPLOAD_DIR = Path(os.getenv('UPLOAD_DIR', str(MEDIA_ROOT / 'documents')))
@@ -320,6 +321,7 @@ async def upload_document(
     document_name_was_edited: bool = Form(False),
     folder_id: str = Form(''),
     file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """Upload and start processing a PDF document"""
     try:
@@ -337,7 +339,7 @@ async def upload_document(
             print(f"[UPLOAD] database schema error: {db_err}", flush=True)
             raise HTTPException(status_code=500, detail=f"Erro de Banco de Dados: {str(db_err)}")
 
-        if folder_id and not database.get_folder(folder_id):
+        if folder_id and not database.get_folder(folder_id, owner_id=current_user["id"]):
             raise HTTPException(status_code=404, detail="Pasta nao encontrada")
 
         original_filename = original_filename or file.filename
@@ -373,6 +375,7 @@ async def upload_document(
             file_path=str(file_path),
             extraction_method='hybrid',
             folder_id=folder_id,
+            owner_id=current_user["id"],
         )
 
         database.update_document_status(
@@ -416,11 +419,11 @@ async def upload_document(
 
 
 @router.post('/{doc_id}/reprocess')
-async def reprocess_document(doc_id: int):
+async def reprocess_document(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Put an existing document back into the processing queue."""
     try:
         database.ensure_schema()
-        doc = database.get_document(doc_id)
+        doc = database.get_document(doc_id, owner_id=current_user["id"])
         if not doc:
             raise HTTPException(status_code=404, detail='Document not found')
 
@@ -450,21 +453,21 @@ async def reprocess_document(doc_id: int):
 
 
 @router.get('/summary/')
-async def get_summary(folder_id: str | None = Query(None)):
+async def get_summary(folder_id: str | None = Query(None), current_user: dict = Depends(get_current_user)):
     """Dashboard summary counters."""
     try:
         database.ensure_schema()
-        return database.get_summary(folder_id=folder_id)
+        return database.get_summary(folder_id=folder_id, owner_id=current_user["id"])
     except Exception as e:
         raise _http_500('Falha ao carregar resumo', e)
 
 
 @router.get('/')
-async def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None = Query(None)):
+async def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None = Query(None), current_user: dict = Depends(get_current_user)):
     """List all documents with pagination"""
     try:
         database.ensure_schema()
-        documents, total = database.list_documents(limit, offset, folder_id=folder_id)
+        documents, total = database.list_documents(limit, offset, folder_id=folder_id, owner_id=current_user["id"])
         # Convert to React-compatible format
         result = []
         for doc in documents:
@@ -498,10 +501,10 @@ async def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None
 
 
 @router.get('/{doc_id}')
-async def get_document(doc_id: int):
+async def get_document(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Get document details"""
     try:
-        doc = database.get_document(doc_id)
+        doc = database.get_document(doc_id, owner_id=current_user["id"])
         if not doc:
             raise HTTPException(status_code=404, detail='Document not found')
         
@@ -531,10 +534,10 @@ async def get_document(doc_id: int):
 
 
 @router.get('/{doc_id}/file')
-async def get_document_file(doc_id: int):
+async def get_document_file(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Return the actual file stored for a given document id using the DB-stored path."""
     try:
-        doc = database.get_document(doc_id)
+        doc = database.get_document(doc_id, owner_id=current_user["id"])
         if not doc:
             raise HTTPException(status_code=404, detail='Document not found')
 
@@ -598,9 +601,9 @@ async def get_document_file(doc_id: int):
 
 
 @router.get('/{doc_id}/export_excel')
-async def export_excel(doc_id: int):
+async def export_excel(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Simple CSV export that spreadsheet apps can open."""
-    doc = database.get_document(doc_id)
+    doc = database.get_document(doc_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail='Document not found')
 
@@ -623,9 +626,9 @@ async def export_excel(doc_id: int):
 
 
 @router.get('/{doc_id}/export_word')
-async def export_word(doc_id: int):
+async def export_word(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Simple text export for the legal opinion and extracted text."""
-    doc = database.get_document(doc_id)
+    doc = database.get_document(doc_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail='Document not found')
 
@@ -646,14 +649,14 @@ async def export_word(doc_id: int):
 
 
 @router.delete('/{doc_id}/')
-async def delete_document(doc_id: int):
+async def delete_document(doc_id: int, current_user: dict = Depends(get_current_user)):
     """Delete document record and associated file"""
     try:
-        doc = database.get_document(doc_id)
+        doc = database.get_document(doc_id, owner_id=current_user["id"])
         if not doc:
             raise HTTPException(status_code=404, detail='Document not found')
 
-        ok = database.delete_document(doc_id)
+        ok = database.delete_document(doc_id, owner_id=current_user["id"])
         if not ok:
             raise HTTPException(status_code=500, detail='Failed to delete document')
 

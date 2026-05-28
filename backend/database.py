@@ -99,6 +99,7 @@ def ensure_schema() -> None:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS folders (
                         id text PRIMARY KEY,
+                        owner_id integer NOT NULL DEFAULT 1,
                         name text NOT NULL,
                         created_at text NOT NULL,
                         updated_at text NOT NULL
@@ -107,7 +108,7 @@ def ensure_schema() -> None:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS documents_document (
                         id integer PRIMARY KEY AUTOINCREMENT,
-                        owner_id integer,
+                        owner_id integer NOT NULL DEFAULT 1,
                         title text NOT NULL,
                         file text NOT NULL,
                         status text NOT NULL,
@@ -125,6 +126,7 @@ def ensure_schema() -> None:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS rg_documents (
                         id integer PRIMARY KEY AUTOINCREMENT,
+                        owner_id integer NOT NULL DEFAULT 1,
                         original_filename text NOT NULL,
                         image_path text NOT NULL,
                         status text NOT NULL DEFAULT 'processing',
@@ -147,6 +149,7 @@ def ensure_schema() -> None:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS process_documents (
                         id integer PRIMARY KEY AUTOINCREMENT,
+                        owner_id integer NOT NULL DEFAULT 1,
                         folder_id text NOT NULL DEFAULT '',
                         process_number text NOT NULL,
                         source_document_id integer,
@@ -163,26 +166,49 @@ def ensure_schema() -> None:
                     )
                 """)
                 for col_sql in [
+                    "ALTER TABLE folders ADD COLUMN owner_id integer DEFAULT 1",
+                    "ALTER TABLE documents_document ADD COLUMN owner_id integer DEFAULT 1",
                     "ALTER TABLE documents_document ADD COLUMN folder_id text DEFAULT ''",
+                    "ALTER TABLE rg_documents ADD COLUMN owner_id integer DEFAULT 1",
                     "ALTER TABLE rg_documents ADD COLUMN image_path_verso text DEFAULT ''",
                     "ALTER TABLE rg_documents ADD COLUMN lado_detectado text DEFAULT ''",
                     "ALTER TABLE rg_documents ADD COLUMN folder_id text DEFAULT ''",
+                    "ALTER TABLE process_documents ADD COLUMN owner_id integer DEFAULT 1",
                 ]:
                     try:
                         cur.execute(col_sql)
                     except Exception:
                         pass
+                try:
+                    cur.execute("UPDATE folders SET owner_id = COALESCE(owner_id, 1)")
+                    cur.execute("UPDATE documents_document SET owner_id = COALESCE(owner_id, 1)")
+                    cur.execute("UPDATE rg_documents SET owner_id = COALESCE(owner_id, 1)")
+                    cur.execute("UPDATE process_documents SET owner_id = COALESCE(owner_id, 1)")
+                except Exception:
+                    pass
                 cur.execute("""
                     CREATE INDEX IF NOT EXISTS idx_documents_folder_id
                     ON documents_document(folder_id)
+                """)
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_documents_owner_id
+                    ON documents_document(owner_id)
                 """)
                 cur.execute("""
                     CREATE INDEX IF NOT EXISTS idx_rg_documents_folder_id
                     ON rg_documents(folder_id)
                 """)
                 cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_rg_documents_owner_id
+                    ON rg_documents(owner_id)
+                """)
+                cur.execute("""
                     CREATE INDEX IF NOT EXISTS idx_process_documents_folder_process
                     ON process_documents(folder_id, process_number)
+                """)
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_process_documents_owner_id
+                    ON process_documents(owner_id)
                 """)
                 conn.commit()
                 return
@@ -202,6 +228,7 @@ def ensure_schema() -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS folders (
                     id varchar(64) PRIMARY KEY,
+                    owner_id integer REFERENCES auth_user(id),
                     name varchar(255) NOT NULL,
                     created_at timestamp NOT NULL,
                     updated_at timestamp NOT NULL
@@ -228,6 +255,7 @@ def ensure_schema() -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS rg_documents (
                     id bigserial PRIMARY KEY,
+                    owner_id integer REFERENCES auth_user(id),
                     original_filename varchar(500) NOT NULL,
                     image_path varchar(500) NOT NULL,
                     status varchar(50) NOT NULL DEFAULT 'processing',
@@ -250,6 +278,7 @@ def ensure_schema() -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS process_documents (
                     id bigserial PRIMARY KEY,
+                    owner_id integer REFERENCES auth_user(id),
                     folder_id varchar(64) NOT NULL DEFAULT '',
                     process_number varchar(80) NOT NULL,
                     source_document_id bigint,
@@ -266,94 +295,113 @@ def ensure_schema() -> None:
                 )
             """)
             for col_sql in [
+                "ALTER TABLE folders ADD COLUMN IF NOT EXISTS owner_id integer REFERENCES auth_user(id)",
+                "ALTER TABLE documents_document ADD COLUMN IF NOT EXISTS owner_id integer REFERENCES auth_user(id)",
                 "ALTER TABLE documents_document ADD COLUMN IF NOT EXISTS folder_id varchar(64) DEFAULT ''",
+                "ALTER TABLE rg_documents ADD COLUMN IF NOT EXISTS owner_id integer REFERENCES auth_user(id)",
                 "ALTER TABLE rg_documents ADD COLUMN IF NOT EXISTS image_path_verso varchar(500) DEFAULT ''",
                 "ALTER TABLE rg_documents ADD COLUMN IF NOT EXISTS lado_detectado varchar(20) DEFAULT ''",
                 "ALTER TABLE rg_documents ADD COLUMN IF NOT EXISTS folder_id varchar(64) DEFAULT ''",
+                "ALTER TABLE process_documents ADD COLUMN IF NOT EXISTS owner_id integer REFERENCES auth_user(id)",
             ]:
                 try:
                     cur.execute(col_sql)
                 except Exception:
                     pass
+            cur.execute("UPDATE folders SET owner_id = COALESCE(owner_id, 1)")
+            cur.execute("UPDATE documents_document SET owner_id = COALESCE(owner_id, 1)")
+            cur.execute("UPDATE rg_documents SET owner_id = COALESCE(owner_id, 1)")
+            cur.execute("UPDATE process_documents SET owner_id = COALESCE(owner_id, 1)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON documents_document(folder_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_documents_owner_id ON documents_document(owner_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_rg_documents_folder_id ON rg_documents(folder_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_rg_documents_owner_id ON rg_documents(owner_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_process_documents_folder_process ON process_documents(folder_id, process_number)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_process_documents_owner_id ON process_documents(owner_id)")
             conn.commit()
 
 
-def create_folder(name: str, folder_id: str | None = None) -> Dict[str, Any]:
+def create_folder(name: str, owner_id: int, folder_id: str | None = None) -> Dict[str, Any]:
     now = datetime.utcnow()
     folder_id = folder_id or uuid.uuid4().hex
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             if DB_BACKEND == 'sqlite':
                 cur.execute("""
-                    INSERT INTO folders (id, name, created_at, updated_at)
-                    VALUES (?, ?, ?, ?)
-                """, (folder_id, name, now.isoformat(), now.isoformat()))
+                    INSERT INTO folders (id, owner_id, name, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (folder_id, owner_id, name, now.isoformat(), now.isoformat()))
             else:
                 cur.execute("""
-                    INSERT INTO folders (id, name, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s)
-                """, (folder_id, name, now, now))
+                    INSERT INTO folders (id, owner_id, name, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (folder_id, owner_id, name, now, now))
             conn.commit()
-    return {'id': folder_id, 'name': name, 'created_at': now.isoformat(), 'updated_at': now.isoformat()}
+    return {'id': folder_id, 'owner_id': owner_id, 'name': name, 'created_at': now.isoformat(), 'updated_at': now.isoformat()}
 
 
-def list_folders() -> List[Dict[str, Any]]:
+def list_folders(owner_id: int) -> List[Dict[str, Any]]:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
-            cur.execute("SELECT id, name, created_at, updated_at FROM folders ORDER BY created_at DESC")
+            ph = "?" if DB_BACKEND == 'sqlite' else "%s"
+            cur.execute(f"SELECT id, owner_id, name, created_at, updated_at FROM folders WHERE owner_id = {ph} ORDER BY created_at DESC", (owner_id,))
             return [
                 {
                     'id': row[0],
-                    'name': row[1],
-                    'created_at': row[2].isoformat() if hasattr(row[2], 'isoformat') else row[2],
-                    'updated_at': row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3],
+                    'owner_id': row[1],
+                    'name': row[2],
+                    'created_at': row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3],
+                    'updated_at': row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4],
                 }
                 for row in cur.fetchall()
             ]
 
 
-def get_folder(folder_id: str) -> Optional[Dict[str, Any]]:
+def get_folder(folder_id: str, owner_id: int | None = None) -> Optional[Dict[str, Any]]:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == 'sqlite' else "%s"
-            cur.execute(f"SELECT id, name, created_at, updated_at FROM folders WHERE id = {ph}", (folder_id,))
+            params: list[Any] = [folder_id]
+            where = f"id = {ph}"
+            if owner_id is not None:
+                where += f" AND owner_id = {ph}"
+                params.append(owner_id)
+            cur.execute(f"SELECT id, owner_id, name, created_at, updated_at FROM folders WHERE {where}", params)
             row = cur.fetchone()
             if not row:
                 return None
             return {
                 'id': row[0],
-                'name': row[1],
-                'created_at': row[2].isoformat() if hasattr(row[2], 'isoformat') else row[2],
-                'updated_at': row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3],
+                'owner_id': row[1],
+                'name': row[2],
+                'created_at': row[3].isoformat() if hasattr(row[3], 'isoformat') else row[3],
+                'updated_at': row[4].isoformat() if hasattr(row[4], 'isoformat') else row[4],
             }
 
 
-def delete_folder(folder_id: str) -> bool:
-    if not get_folder(folder_id):
+def delete_folder(folder_id: str, owner_id: int) -> bool:
+    if not get_folder(folder_id, owner_id=owner_id):
         return False
 
-    documents, _ = list_documents(limit=10000, offset=0, folder_id=folder_id)
+    documents, _ = list_documents(limit=10000, offset=0, folder_id=folder_id, owner_id=owner_id)
     for doc in documents:
-        delete_document(doc['id'])
+        delete_document(doc['id'], owner_id=owner_id)
 
-    for rg in list_rgs(folder_id=folder_id):
-        delete_rg(rg['id'])
+    for rg in list_rgs(folder_id=folder_id, owner_id=owner_id):
+        delete_rg(rg['id'], owner_id=owner_id)
 
-    for process_doc in list_process_documents(folder_id=folder_id):
-        delete_process_document(process_doc['id'])
+    for process_doc in list_process_documents(folder_id=folder_id, owner_id=owner_id):
+        delete_process_document(process_doc['id'], owner_id=owner_id)
 
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == 'sqlite' else "%s"
-            cur.execute(f"DELETE FROM folders WHERE id = {ph}", (folder_id,))
+            cur.execute(f"DELETE FROM folders WHERE id = {ph} AND owner_id = {ph}", (folder_id, owner_id))
             conn.commit()
             return cur.rowcount > 0
 
 
-def create_document(filename: str, file_path: str, extraction_method: str = 'hybrid', folder_id: str = '') -> int:
+def create_document(filename: str, file_path: str, extraction_method: str = 'hybrid', folder_id: str = '', owner_id: int = 1) -> int:
     """Create document record and return ID"""
     from datetime import datetime
     
@@ -373,7 +421,7 @@ def create_document(filename: str, file_path: str, extraction_method: str = 'hyb
                 '',  # error_message
                 now,  # created_at
                 now,  # updated_at
-                1,  # owner_id=1 (demo user)
+                owner_id,
                 folder_id or '',
             )
             if DB_BACKEND == 'sqlite':
@@ -395,18 +443,23 @@ def create_document(filename: str, file_path: str, extraction_method: str = 'hyb
             return doc_id
 
 
-def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
+def get_document(doc_id: int, owner_id: int | None = None) -> Optional[Dict[str, Any]]:
     """Retrieve document with all related data"""
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             placeholder = "?" if DB_BACKEND == 'sqlite' else "%s"
+            owner_clause = ""
+            params: list[Any] = [doc_id]
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {placeholder}"
+                params.append(owner_id)
             cur.execute(f"""
                 SELECT id, title, file, status, document_type,
                        extracted_text, extracted_data, entities, legal_opinion, risk_score,
                        error_message, created_at, updated_at, folder_id
                 FROM documents_document
-                WHERE id = {placeholder}
-            """, (doc_id,))
+                WHERE id = {placeholder}{owner_clause}
+            """, params)
             
             row = cur.fetchone()
             if not row:
@@ -431,17 +484,21 @@ def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
             }
 
 
-def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None = None) -> tuple[List[Dict[str, Any]], int]:
+def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None = None, owner_id: int | None = None) -> tuple[List[Dict[str, Any]], int]:
     """List documents with pagination"""
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             # Get total count
             ph = "?" if DB_BACKEND == 'sqlite' else "%s"
             params: list[Any] = []
-            where = ""
+            where_parts: list[str] = []
+            if owner_id is not None:
+                where_parts.append(f"owner_id = {ph}")
+                params.append(owner_id)
             if folder_id is not None:
-                where = f" WHERE folder_id = {ph}"
+                where_parts.append(f"folder_id = {ph}")
                 params.append(folder_id)
+            where = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
 
             cur.execute(f"SELECT COUNT(*) FROM documents_document{where}", params)
             total = cur.fetchone()[0]
@@ -487,16 +544,20 @@ def list_documents(limit: int = 50, offset: int = 0, folder_id: str | None = Non
             return documents, total
 
 
-def get_summary(folder_id: str | None = None) -> Dict[str, Any]:
+def get_summary(folder_id: str | None = None, owner_id: int | None = None) -> Dict[str, Any]:
     """Return dashboard counters expected by the React frontend."""
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == 'sqlite' else "%s"
             params: list[Any] = []
-            where = ""
+            where_parts: list[str] = []
+            if owner_id is not None:
+                where_parts.append(f"owner_id = {ph}")
+                params.append(owner_id)
             if folder_id is not None:
-                where = f" WHERE folder_id = {ph}"
+                where_parts.append(f"folder_id = {ph}")
                 params.append(folder_id)
+            where = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
             if DB_BACKEND == 'sqlite':
                 cur.execute(f"""
                     SELECT
@@ -611,57 +672,66 @@ def _rg_row_to_dict(row) -> Dict[str, Any]:
     }
 
 
-def create_rg(original_filename: str, image_path: str, image_path_verso: str = "", folder_id: str = "") -> int:
+def create_rg(original_filename: str, image_path: str, image_path_verso: str = "", folder_id: str = "", owner_id: int = 1) -> int:
     now = datetime.utcnow()
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             if DB_BACKEND == "sqlite":
                 cur.execute("""
                     INSERT INTO rg_documents
-                    (original_filename, image_path, status, ocr_method, nome, rg, cpf,
+                    (owner_id, original_filename, image_path, status, ocr_method, nome, rg, cpf,
                      data_nascimento, municipio, nome_mae, nome_pai, raw_text, error_message,
                      created_at, updated_at, image_path_verso, lado_detectado, folder_id)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (original_filename, image_path, "processing", "", "", "", "", "", "", "", "", "", "", now, now, image_path_verso, "", folder_id or ""))
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (owner_id, original_filename, image_path, "processing", "", "", "", "", "", "", "", "", "", "", now, now, image_path_verso, "", folder_id or ""))
                 rg_id = cur.lastrowid
             else:
                 cur.execute("""
                     INSERT INTO rg_documents
-                    (original_filename, image_path, status, ocr_method, nome, rg, cpf,
+                    (owner_id, original_filename, image_path, status, ocr_method, nome, rg, cpf,
                      data_nascimento, municipio, nome_mae, nome_pai, raw_text, error_message,
                      created_at, updated_at, image_path_verso, lado_detectado, folder_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
-                """, (original_filename, image_path, "processing", "", "", "", "", "", "", "", "", "", "", now, now, image_path_verso, "", folder_id or ""))
+                """, (owner_id, original_filename, image_path, "processing", "", "", "", "", "", "", "", "", "", "", now, now, image_path_verso, "", folder_id or ""))
                 rg_id = cur.fetchone()[0]
             conn.commit()
             return rg_id
 
 
-def get_rg(rg_id: int) -> Optional[Dict[str, Any]]:
+def get_rg(rg_id: int, owner_id: int | None = None) -> Optional[Dict[str, Any]]:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == "sqlite" else "%s"
+            params: list[Any] = [rg_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                params.append(owner_id)
             cur.execute(f"""
                 SELECT id, original_filename, image_path, status, ocr_method,
                        nome, rg, cpf, data_nascimento, municipio, nome_mae, nome_pai,
                        error_message, created_at, updated_at,
                        image_path_verso, lado_detectado, folder_id
-                FROM rg_documents WHERE id = {ph}
-            """, (rg_id,))
+                FROM rg_documents WHERE id = {ph}{owner_clause}
+            """, params)
             row = cur.fetchone()
             return _rg_row_to_dict(row) if row else None
 
 
-def list_rgs(folder_id: str | None = None) -> List[Dict[str, Any]]:
+def list_rgs(folder_id: str | None = None, owner_id: int | None = None) -> List[Dict[str, Any]]:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == "sqlite" else "%s"
             params: list[Any] = []
-            where = ""
+            where_parts: list[str] = []
+            if owner_id is not None:
+                where_parts.append(f"owner_id = {ph}")
+                params.append(owner_id)
             if folder_id is not None:
-                where = f" WHERE folder_id = {ph}"
+                where_parts.append(f"folder_id = {ph}")
                 params.append(folder_id)
+            where = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
             cur.execute(f"""
                 SELECT id, original_filename, image_path, status, ocr_method,
                        nome, rg, cpf, data_nascimento, municipio, nome_mae, nome_pai,
@@ -694,11 +764,16 @@ def update_rg(rg_id: int, status: str, **kwargs) -> bool:
             return cur.rowcount > 0
 
 
-def delete_rg(rg_id: int) -> bool:
+def delete_rg(rg_id: int, owner_id: int | None = None) -> bool:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == "sqlite" else "%s"
-            cur.execute(f"SELECT image_path, image_path_verso FROM rg_documents WHERE id = {ph}", (rg_id,))
+            params: list[Any] = [rg_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                params.append(owner_id)
+            cur.execute(f"SELECT image_path, image_path_verso FROM rg_documents WHERE id = {ph}{owner_clause}", params)
             row = cur.fetchone()
             if not row:
                 return False
@@ -711,18 +786,28 @@ def delete_rg(rg_id: int) -> bool:
                             p.unlink()
             except Exception:
                 pass
-            cur.execute(f"DELETE FROM rg_documents WHERE id = {ph}", (rg_id,))
+            delete_params: list[Any] = [rg_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                delete_params.append(owner_id)
+            cur.execute(f"DELETE FROM rg_documents WHERE id = {ph}{owner_clause}", delete_params)
             conn.commit()
             return cur.rowcount > 0
 
 
-def delete_document(doc_id: int) -> bool:
+def delete_document(doc_id: int, owner_id: int | None = None) -> bool:
     """Delete document row and remove file from filesystem if present"""
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             # fetch stored file path
             placeholder = "?" if DB_BACKEND == 'sqlite' else "%s"
-            cur.execute(f"SELECT file FROM documents_document WHERE id = {placeholder}", (doc_id,))
+            params: list[Any] = [doc_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {placeholder}"
+                params.append(owner_id)
+            cur.execute(f"SELECT file FROM documents_document WHERE id = {placeholder}{owner_clause}", params)
             row = cur.fetchone()
             if not row:
                 return False
@@ -760,7 +845,12 @@ def delete_document(doc_id: int) -> bool:
                 print(f"Warning: could not remove file {file_path}: {e}")
 
             # delete DB row
-            cur.execute(f"DELETE FROM documents_document WHERE id = {placeholder}", (doc_id,))
+            delete_params: list[Any] = [doc_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {placeholder}"
+                delete_params.append(owner_id)
+            cur.execute(f"DELETE FROM documents_document WHERE id = {placeholder}{owner_clause}", delete_params)
             conn.commit()
             return cur.rowcount > 0
 
@@ -788,6 +878,7 @@ def _process_document_row_to_dict(row) -> Dict[str, Any]:
 
 def create_process_document(
     *,
+    owner_id: int,
     folder_id: str,
     process_number: str,
     original_filename: str,
@@ -796,6 +887,7 @@ def create_process_document(
 ) -> int:
     now = datetime.utcnow()
     values = (
+        owner_id,
         folder_id or "",
         process_number,
         source_document_id,
@@ -815,19 +907,19 @@ def create_process_document(
             if DB_BACKEND == "sqlite":
                 cur.execute("""
                     INSERT INTO process_documents
-                    (folder_id, process_number, source_document_id, original_filename, file_path,
+                    (owner_id, folder_id, process_number, source_document_id, original_filename, file_path,
                      status, extraction_method, extracted_text, analysis_data, summary,
                      error_message, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, values)
                 process_doc_id = cur.lastrowid
             else:
                 cur.execute("""
                     INSERT INTO process_documents
-                    (folder_id, process_number, source_document_id, original_filename, file_path,
+                    (owner_id, folder_id, process_number, source_document_id, original_filename, file_path,
                      status, extraction_method, extracted_text, analysis_data, summary,
                      error_message, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, values)
                 process_doc_id = cur.fetchone()[0]
@@ -856,25 +948,33 @@ def update_process_document(process_doc_id: int, status: str, **kwargs) -> bool:
             return cur.rowcount > 0
 
 
-def get_process_document(process_doc_id: int) -> Optional[Dict[str, Any]]:
+def get_process_document(process_doc_id: int, owner_id: int | None = None) -> Optional[Dict[str, Any]]:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == "sqlite" else "%s"
+            params: list[Any] = [process_doc_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                params.append(owner_id)
             cur.execute(f"""
                 SELECT id, folder_id, process_number, source_document_id, original_filename,
                        file_path, status, extraction_method, extracted_text, analysis_data,
                        summary, error_message, created_at, updated_at
                 FROM process_documents
-                WHERE id = {ph}
-            """, (process_doc_id,))
+                WHERE id = {ph}{owner_clause}
+            """, params)
             row = cur.fetchone()
             return _process_document_row_to_dict(row) if row else None
 
 
-def list_process_documents(folder_id: str | None = None, process_number: str | None = None) -> List[Dict[str, Any]]:
+def list_process_documents(folder_id: str | None = None, process_number: str | None = None, owner_id: int | None = None) -> List[Dict[str, Any]]:
     filters: list[str] = []
     params: list[Any] = []
     ph = "?" if DB_BACKEND == "sqlite" else "%s"
+    if owner_id is not None:
+        filters.append(f"owner_id = {ph}")
+        params.append(owner_id)
     if folder_id is not None:
         filters.append(f"folder_id = {ph}")
         params.append(folder_id)
@@ -895,11 +995,16 @@ def list_process_documents(folder_id: str | None = None, process_number: str | N
             return [_process_document_row_to_dict(row) for row in cur.fetchall()]
 
 
-def delete_process_document(process_doc_id: int) -> bool:
+def delete_process_document(process_doc_id: int, owner_id: int | None = None) -> bool:
     with get_connection() as conn:
         with get_cursor(conn) as cur:
             ph = "?" if DB_BACKEND == "sqlite" else "%s"
-            cur.execute(f"SELECT file_path FROM process_documents WHERE id = {ph}", (process_doc_id,))
+            params: list[Any] = [process_doc_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                params.append(owner_id)
+            cur.execute(f"SELECT file_path FROM process_documents WHERE id = {ph}{owner_clause}", params)
             row = cur.fetchone()
             if not row:
                 return False
@@ -909,6 +1014,11 @@ def delete_process_document(process_doc_id: int) -> bool:
                     path.unlink()
             except Exception as exc:
                 print(f"Warning: could not remove process PDF {row[0]}: {exc}")
-            cur.execute(f"DELETE FROM process_documents WHERE id = {ph}", (process_doc_id,))
+            delete_params: list[Any] = [process_doc_id]
+            owner_clause = ""
+            if owner_id is not None:
+                owner_clause = f" AND owner_id = {ph}"
+                delete_params.append(owner_id)
+            cur.execute(f"DELETE FROM process_documents WHERE id = {ph}{owner_clause}", delete_params)
             conn.commit()
             return cur.rowcount > 0

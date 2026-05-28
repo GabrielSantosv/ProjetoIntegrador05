@@ -15,7 +15,6 @@ import {
   type LegalDocument,
   type ProcessDocument,
   type ProcessTimelineEvent,
-  type ProcessIdentificacao,
   type ProcessObjeto,
   type ProcessValores,
   type ProcessPartesDetalhadas,
@@ -293,24 +292,6 @@ function ProcessCard({
   );
 }
 
-function formatExtractionMethod(method: string): string {
-  const labels: Record<string, string> = {
-    pdfplumber:       "pdfplumber - texto nato do PDF",
-    fitz:             "PyMuPDF/fitz - texto nato do PDF",
-    pdfplumber_quick: "pdfplumber quick - texto nato do PDF",
-    fitz_quick:       "PyMuPDF/fitz quick - texto nato do PDF",
-    ocr:              "Tesseract OCR - imagem digitalizada",
-    windows_ocr:      "Windows OCR - imagem digitalizada",
-    pdf_text:         "PDF texto nato",
-    pdf_images:       "PDF imagens OCR",
-    pdf_regions:      "PDF regioes OCR",
-    pytesseract:      "Tesseract OCR",
-    failed:           "Falha na extracao",
-    quick_empty:      "Sem texto",
-  };
-  return labels[method] || method || "-";
-}
-
 function Metric({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "amber" | "blue" }) {
   const color = tone === "amber" ? "text-amber-700" : tone === "blue" ? "text-blue-700" : "text-foreground";
   return (
@@ -348,7 +329,6 @@ function AnalysisView({
   decisions: ProcessTimelineEvent[];
   latestEvents: ProcessTimelineEvent[];
 }) {
-  const ident   = data.identificacao  as ProcessIdentificacao  | undefined;
   const objeto  = data.objeto         as ProcessObjeto         | undefined;
   const partes  = data.partes_detalhadas as ProcessPartesDetalhadas | undefined;
   const valores = data.valores_detalhados as ProcessValores    | undefined;
@@ -583,51 +563,11 @@ function AnalysisView({
   );
 }
 
-function IdentChip({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className={`rounded-md border px-2.5 py-1.5 text-xs ${accent ? "border-primary/30 bg-primary/5" : "bg-muted/30"}`}>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">{label}</span>
-      <span className={`font-semibold ${accent ? "text-primary" : "text-foreground"}`}>{value}</span>
-    </div>
-  );
-}
-
 function ValorRow({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex justify-between items-center text-xs">
       <span className="text-muted-foreground">{label}</span>
       <span className={`font-bold ${highlight ? "text-primary" : "text-foreground"}`}>{value}</span>
-    </div>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  fallback,
-  highlight = false,
-}: {
-  label: string;
-  value: string | undefined | null;
-  fallback?: string;
-  highlight?: boolean;
-}) {
-  const displayValue = value || fallback;
-  const isFallback = !value && Boolean(fallback);
-  return (
-    <div className="mb-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
-      <p
-        className={
-          isFallback
-            ? "text-xs italic text-muted-foreground"
-            : highlight
-              ? "text-sm font-bold text-primary"
-              : "text-sm text-foreground"
-        }
-      >
-        {displayValue}
-      </p>
     </div>
   );
 }
@@ -638,30 +578,6 @@ function InfoPanel({ title, children }: { title: string; children: ReactNode }) 
       <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-primary">{title}</p>
       <div className="text-sm leading-relaxed text-foreground">{children}</div>
     </div>
-  );
-}
-
-function EventList({ events }: { events: ProcessTimelineEvent[] }) {
-  return (
-    <ul className="space-y-3">
-      {events.map((event, index) => {
-        const raw = event.description || event.excerpt || "";
-        const text = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
-        return (
-          <li key={`${event.date}-${event.event_type}-${index}`} className="text-xs leading-relaxed">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono font-bold text-foreground">{event.date}</span>
-              {event.label && event.label !== "Data relevante" && (
-                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                  {event.label}
-                </span>
-              )}
-            </div>
-            {text && <p className="mt-0.5 text-muted-foreground">{text}</p>}
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

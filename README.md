@@ -6,7 +6,7 @@ Sistema para upload de PDFs jurídicos, extração de texto, classificação, an
 
 - **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS e Zustand.
 - **Backend:** FastAPI, Uvicorn, Python 3.11+, extração com `pdfplumber`, `PyMuPDF` e OCR opcional (Tesseract).
-- **Banco:** SQLite por padrão (`data/app.db`). Suporte a PostgreSQL via `DB_BACKEND=postgresql` em `backend/.env`.
+- **Banco:** PostgreSQL por padrão, usando o banco `Projeto oficial`.
 
 ## Como rodar
 
@@ -23,8 +23,10 @@ O script verifica dependências, instala o que falta e abre o projeto em `http:/
 1. Configure `backend/.env` (copie de `backend/.env.example`):
 
 ```env
-DB_BACKEND=sqlite
-SQLITE_PATH=./data/app.db
+DB_BACKEND=postgresql
+DB_NAME="Projeto oficial"
+DB_USER=postgres
+DB_PASSWORD=postgres
 MEDIA_ROOT=./media
 OCR_LANGUAGE=por+eng
 ```
@@ -70,7 +72,7 @@ entidades e análise jurídica ficam limitados.
 ```text
 backend/        # FastAPI (main.py, services.py, database.py, routers/)
 frontend/       # React/Vite (src/, index.html, vite.config.mjs)
-data/           # banco SQLite (app.db)
+data/           # arquivos locais temporários e banco SQLite legado, se usado
 media/          # uploads salvos (documents/, rg/, processes/)
 docs/           # diagramas e documentação
 tests/          # testes automatizados

@@ -39,6 +39,10 @@ api.interceptors.response.use(
         status: error.response?.status,
         response: error.response?.data,
       });
+
+      if (error.response?.status === 401) {
+        useAuthStore.getState().logout();
+      }
     }
     return Promise.reject(error);
   },

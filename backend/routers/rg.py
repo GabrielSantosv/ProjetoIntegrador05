@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query
+﻿from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response, Query, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Optional
 import asyncio
@@ -9,9 +9,10 @@ import unicodedata
 from pathlib import Path
 
 from backend import database
+from backend.auth_security import get_current_user
 from backend.rg_service import process_rg_document
 
-router = APIRouter(prefix="/api/rg", tags=["rg"])
+router = APIRouter(prefix="/api/rg", tags=["rg"], dependencies=[Depends(get_current_user)])
 
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", "./media"))
 RG_DIR = MEDIA_ROOT / "rg"
@@ -50,12 +51,12 @@ async def _process_rg_async(rg_id: int, path1: str, path2: Optional[str]) -> Non
 
 
 @router.post("/")
-async def upload_rg(folder_id: str = Form(""), files: List[UploadFile] = File(...)) -> JSONResponse:
+async def upload_rg(folder_id: str = Form(""), files: List[UploadFile] = File(...), current_user: dict = Depends(get_current_user)) -> JSONResponse:
     if not files:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado")
 
     database.ensure_schema()
-    if folder_id and not database.get_folder(folder_id):
+    if folder_id and not database.get_folder(folder_id, owner_id=current_user["id"]):
         raise HTTPException(status_code=404, detail="Pasta nao encontrada")
 
     saved: list[tuple[str, str]] = []  # (path, original_filename)
@@ -81,21 +82,22 @@ async def upload_rg(folder_id: str = Form(""), files: List[UploadFile] = File(..
         image_path=path1,
         image_path_verso=path2_str,
         folder_id=folder_id,
+        owner_id=current_user["id"],
     )
     asyncio.create_task(_process_rg_async(rg_id, path1, path2_str or None))
     return JSONResponse({"id": rg_id, "status": "processing"}, status_code=201)
 
 
 @router.get("/")
-async def list_rgs(folder_id: str | None = Query(None)):
+async def list_rgs(folder_id: str | None = Query(None), current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    return database.list_rgs(folder_id=folder_id)
+    return database.list_rgs(folder_id=folder_id, owner_id=current_user["id"])
 
 
 @router.get("/{rg_id}")
-async def get_rg(rg_id: int):
+async def get_rg(rg_id: int, current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    doc = database.get_rg(rg_id)
+    doc = database.get_rg(rg_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="RG não encontrado")
     return doc
@@ -121,8 +123,8 @@ def _get_pdf_preview(pdf_path: Path) -> Path:
 
 
 @router.get("/{rg_id}/image")
-async def get_rg_image(rg_id: int):
-    doc = database.get_rg(rg_id)
+async def get_rg_image(rg_id: int, current_user: dict = Depends(get_current_user)):
+    doc = database.get_rg(rg_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="RG não encontrado")
     path = Path(doc["image_path"])
@@ -135,8 +137,8 @@ async def get_rg_image(rg_id: int):
 
 
 @router.get("/{rg_id}/image_verso")
-async def get_rg_image_verso(rg_id: int):
-    doc = database.get_rg(rg_id)
+async def get_rg_image_verso(rg_id: int, current_user: dict = Depends(get_current_user)):
+    doc = database.get_rg(rg_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="RG não encontrado")
     if not doc.get("image_path_verso"):
@@ -145,9 +147,9 @@ async def get_rg_image_verso(rg_id: int):
 
 
 @router.delete("/{rg_id}")
-async def delete_rg(rg_id: int):
+async def delete_rg(rg_id: int, current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    ok = database.delete_rg(rg_id)
+    ok = database.delete_rg(rg_id, owner_id=current_user["id"])
     if not ok:
         raise HTTPException(status_code=404, detail="RG não encontrado")
     return Response(status_code=204)

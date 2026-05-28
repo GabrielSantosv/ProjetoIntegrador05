@@ -1,4 +1,4 @@
-"""User authentication database — MySQL com fallback automático para SQLite."""
+"""User authentication database — PostgreSQL, MySQL or SQLite."""
 from __future__ import annotations
 
 import hashlib
@@ -12,27 +12,45 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+import psycopg
+
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 AUTH_BACKEND  = os.getenv("AUTH_DB_BACKEND", "sqlite").lower()
 AUTH_HOST     = os.getenv("AUTH_DB_HOST", "localhost")
 AUTH_PORT     = int(os.getenv("AUTH_DB_PORT", 3306))
-AUTH_NAME     = os.getenv("AUTH_DB_NAME", "projeto_integrador")
+AUTH_NAME     = os.getenv("AUTH_DB_NAME", "Projeto oficial")
 AUTH_USER     = os.getenv("AUTH_DB_USER", "root")
 AUTH_PASSWORD = os.getenv("AUTH_DB_PASSWORD", "")
 AUTH_SQLITE   = Path(os.getenv("AUTH_SQLITE_PATH", "./data/auth.db"))
 
-# Rastreia qual backend está realmente sendo usado (pode mudar para sqlite se MySQL falhar)
+# Rastreia qual backend está realmente sendo usado (pode mudar para sqlite se MySQL/PostgreSQL falhar)
 _active_backend = AUTH_BACKEND
 
 
 def _ph() -> str:
-    return "%s" if _active_backend == "mysql" else "?"
+    return "%s" if _active_backend in {"mysql", "postgresql"} else "?"
 
 
 @contextmanager
 def _connection():
     global _active_backend
+
+    if AUTH_BACKEND == "postgresql":
+        conn = psycopg.connect(
+            host=AUTH_HOST,
+            port=AUTH_PORT,
+            dbname=AUTH_NAME,
+            user=AUTH_USER,
+            password=AUTH_PASSWORD,
+            connect_timeout=5,
+        )
+        _active_backend = "postgresql"
+        try:
+            yield conn
+        finally:
+            conn.close()
+        return
 
     if AUTH_BACKEND == "mysql":
         try:
@@ -78,6 +96,16 @@ def ensure_users_table() -> None:
                     updated_at    DATETIME NOT NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """)
+        elif _active_backend == "postgresql":
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id            BIGSERIAL PRIMARY KEY,
+                    email         VARCHAR(254) NOT NULL UNIQUE,
+                    password_hash VARCHAR(200) NOT NULL,
+                    created_at    TIMESTAMP NOT NULL,
+                    updated_at    TIMESTAMP NOT NULL
+                )
+            """)
         else:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -111,15 +139,22 @@ def create_user(email: str, password: str) -> dict:
     now = datetime.utcnow()
     ph = hash_password(password)
     p = _ph()
-    now_val = now if _active_backend == "mysql" else now.isoformat()
+    now_val = now if _active_backend in {"mysql", "postgresql"} else now.isoformat()
     with _connection() as conn:
         cur = conn.cursor()
-        cur.execute(
-            f"INSERT INTO users (email, password_hash, created_at, updated_at) VALUES ({p},{p},{p},{p})",
-            (email.lower(), ph, now_val, now_val),
-        )
+        if _active_backend == "postgresql":
+            cur.execute(
+                f"INSERT INTO users (email, password_hash, created_at, updated_at) VALUES ({p},{p},{p},{p}) RETURNING id",
+                (email.lower(), ph, now_val, now_val),
+            )
+            user_id = cur.fetchone()[0]
+        else:
+            cur.execute(
+                f"INSERT INTO users (email, password_hash, created_at, updated_at) VALUES ({p},{p},{p},{p})",
+                (email.lower(), ph, now_val, now_val),
+            )
+            user_id = cur.lastrowid
         conn.commit()
-        user_id = cur.lastrowid
         cur.close()
     return {"id": user_id, "email": email.lower()}
 
@@ -141,3 +176,34 @@ def get_user_by_email(email: str) -> Optional[dict]:
 
 def email_exists(email: str) -> bool:
     return get_user_by_email(email) is not None
+
+
+def sync_user_to_app_db(user_id: int, email: str) -> None:
+    """Ensure the authenticated user exists in the main application database."""
+    from backend import database as app_database
+
+    app_database.ensure_schema()
+    username = email.split("@", 1)[0] or email
+
+    with app_database.get_connection() as conn:
+        with app_database.get_cursor(conn) as cur:
+            if app_database.DB_BACKEND == "sqlite":
+                cur.execute(
+                    """
+                    INSERT OR REPLACE INTO auth_user (id, username, email)
+                    VALUES (?, ?, ?)
+                    """,
+                    (user_id, username, email.lower()),
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO auth_user (id, username, email)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        username = EXCLUDED.username,
+                        email = EXCLUDED.email
+                    """,
+                    (user_id, username, email.lower()),
+                )
+            conn.commit()

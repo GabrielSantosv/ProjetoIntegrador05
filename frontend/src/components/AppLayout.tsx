@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth";
 
 export function AppLayout() {
   const logout = useAuthStore((state) => state.logout);
+  const email = useAuthStore((state) => state.email);
   const navigate = useNavigate();
 
   return (
@@ -19,6 +20,7 @@ export function AppLayout() {
             <span>Processamento Juridico</span>
           </Link>
           <div className="flex items-center gap-2">
+            {email && <span className="hidden text-sm text-muted-foreground sm:inline">{email}</span>}
             <Button asChild variant="ghost" size="sm">
               <Link to="/">
                 <FolderOpen className="h-4 w-4" />

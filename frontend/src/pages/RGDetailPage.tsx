@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteRGDocument, fetchFolder, fetchRGDocument, getRGImageUrl, getRGImageVersoUrl } from "@/lib/api";
+import { deleteRGDocument, fetchRGDocument, getRGImageUrl, getRGImageVersoUrl } from "@/lib/api";
 
 const RG_FIELD_LABELS: Record<string, string> = {
   data_nascimento: "Data de Nascimento",
@@ -22,13 +22,6 @@ const FIELD_ORDER = ["data_nascimento", "municipio", "nome_pai", "nome_mae", "rg
 export function RGDetailPage() {
   const { folderId = "", rgId = "" } = useParams();
   const navigate = useNavigate();
-  const { data: folder } = useQuery({
-    queryKey: ["folder", folderId],
-    queryFn: () => fetchFolder(folderId),
-    enabled: Boolean(folderId),
-    retry: false,
-  });
-
   const [fieldEdits, setFieldEdits] = useState<Record<string, string>>({});
   const [reviewedFields, setReviewedFields] = useState<Set<string>>(new Set());
   const [editingField, setEditingField] = useState<string | null>(null);

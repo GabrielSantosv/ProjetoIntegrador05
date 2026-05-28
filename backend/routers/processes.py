@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile
+﻿from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, Depends
 from fastapi.responses import FileResponse, JSONResponse
 import asyncio
 import os
@@ -9,11 +9,12 @@ from pathlib import Path
 from urllib.parse import quote
 
 from backend import database
+from backend.auth_security import get_current_user
 from backend.process_service import analyze_process_text
 from backend.services import extract_pdf_text
 
 
-router = APIRouter(prefix="/api/processes", tags=["processes"])
+router = APIRouter(prefix="/api/processes", tags=["processes"], dependencies=[Depends(get_current_user)])
 
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", "./media"))
 PROCESS_DIR = MEDIA_ROOT / "processes"
@@ -101,9 +102,10 @@ async def _process_case_pdf_async(process_doc_id: int, file_path: str, process_n
 async def list_process_documents(
     folder_id: str | None = Query(None),
     process_number: str | None = Query(None),
+    current_user: dict = Depends(get_current_user),
 ):
     database.ensure_schema()
-    return [_to_response(doc) for doc in database.list_process_documents(folder_id, process_number)]
+    return [_to_response(doc) for doc in database.list_process_documents(folder_id, process_number, owner_id=current_user["id"])]
 
 
 @router.post("/")
@@ -112,9 +114,10 @@ async def upload_process_document(
     process_number: str = Form(...),
     source_document_id: int | None = Form(None),
     file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     database.ensure_schema()
-    if not database.get_folder(folder_id):
+    if not database.get_folder(folder_id, owner_id=current_user["id"]):
         raise HTTPException(status_code=404, detail="Pasta nao encontrada")
     if not process_number.strip():
         raise HTTPException(status_code=400, detail="Numero do processo e obrigatorio")
@@ -122,6 +125,8 @@ async def upload_process_document(
         raise HTTPException(status_code=400, detail="Nome do arquivo ausente")
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Envie um arquivo PDF")
+    if source_document_id is not None and not database.get_document(source_document_id, owner_id=current_user["id"]):
+        raise HTTPException(status_code=404, detail="Documento de origem nao encontrado")
 
     safe_name = _safe_storage_filename(file.filename)
     file_path = PROCESS_DIR / safe_name
@@ -129,6 +134,7 @@ async def upload_process_document(
     file_path.write_bytes(content)
 
     process_doc_id = database.create_process_document(
+        owner_id=current_user["id"],
         folder_id=folder_id,
         process_number=process_number.strip(),
         source_document_id=source_document_id,
@@ -136,23 +142,23 @@ async def upload_process_document(
         file_path=str(file_path),
     )
     asyncio.create_task(_process_case_pdf_async(process_doc_id, str(file_path), process_number.strip()))
-    doc = database.get_process_document(process_doc_id)
+    doc = database.get_process_document(process_doc_id, owner_id=current_user["id"])
     return JSONResponse(_to_response(doc), status_code=201)
 
 
 @router.get("/{process_doc_id}")
-async def get_process_document(process_doc_id: int):
+async def get_process_document(process_doc_id: int, current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    doc = database.get_process_document(process_doc_id)
+    doc = database.get_process_document(process_doc_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="Analise de processo nao encontrada")
     return _to_response(doc)
 
 
 @router.get("/{process_doc_id}/file")
-async def get_process_document_file(process_doc_id: int):
+async def get_process_document_file(process_doc_id: int, current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    doc = database.get_process_document(process_doc_id)
+    doc = database.get_process_document(process_doc_id, owner_id=current_user["id"])
     if not doc:
         raise HTTPException(status_code=404, detail="Analise de processo nao encontrada")
     path = Path(doc["file_path"])
@@ -166,9 +172,9 @@ async def get_process_document_file(process_doc_id: int):
 
 
 @router.delete("/{process_doc_id}")
-async def delete_process_document(process_doc_id: int):
+async def delete_process_document(process_doc_id: int, current_user: dict = Depends(get_current_user)):
     database.ensure_schema()
-    deleted = database.delete_process_document(process_doc_id)
+    deleted = database.delete_process_document(process_doc_id, owner_id=current_user["id"])
     if not deleted:
         raise HTTPException(status_code=404, detail="Analise de processo nao encontrada")
     return Response(status_code=204)
