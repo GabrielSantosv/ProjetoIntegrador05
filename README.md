@@ -14,7 +14,7 @@ A ideia do projeto e ajudar no envio dos arquivos, extracao das informacoes prin
 - Visualizacao dos documentos enviados.
 - Dashboard com informacoes resumidas.
 
-## Tecnologias usadas
+## Tecnologias usada
 
 **Backend**
 
